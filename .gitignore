@@ -1,0 +1,29 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# IntelliJ IDEA
+.idea/*
+
+# Environment / secrets
+.env
+.env.*
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+.claude/
+
+*.iml
+*.xml
+
+# Bruno environments with sensitive data
+#bruno/environments/local.bru
