@@ -1,0 +1,26 @@
+meta {
+  name: Siwarga RDMS API
+}
+
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  Resident Dues Management System (RDMS) REST API.
+
+  Base path: /api/v1
+  Auth: Bearer JWT (run Auth > Login first).
+
+  Roles:
+  - ADMINISTRATOR — full access
+  - SUPERVISOR — payments and reports only
+}

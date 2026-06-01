@@ -1,0 +1,15 @@
+meta {
+  name: Get House by ID
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/houses/{{houseId}}
+  body: none
+  auth: inherit
+}
+
+docs {
+  GET /api/v1/houses/{id} — Get house by ID. Administrator only.
+}

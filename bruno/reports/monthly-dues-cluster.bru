@@ -1,0 +1,17 @@
+meta {
+  name: Monthly Dues (Cluster)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/reports/dues/monthly
+  body: none
+  auth: inherit
+}
+
+docs {
+  GET /api/v1/reports/dues/monthly — Cluster-wide monthly dues summary. Administrator and Supervisor.
+
+  scope: CLUSTER. Reconciliation: expectedIdr = collectedIdr + discountIdr + outstandingIdr.
+}

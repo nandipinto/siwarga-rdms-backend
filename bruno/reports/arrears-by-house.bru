@@ -1,0 +1,17 @@
+meta {
+  name: Arrears by House
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/reports/arrears/{{houseId}}
+  body: none
+  auth: inherit
+}
+
+docs {
+  GET /api/v1/reports/arrears/{houseId} — Arrears and penalty detail for one house. Administrator and Supervisor.
+
+  Returns totalArrearsIdr, totalPenaltiesIdr, depositIdr, unpaidPeriods, and penalties.
+}

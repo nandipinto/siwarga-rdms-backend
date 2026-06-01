@@ -1,0 +1,28 @@
+meta {
+  name: Update User
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/v1/users/{{userId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "role": "SUPERVISOR",
+    "isActive": true,
+    "password": "newpassword123"
+  }
+}
+
+docs {
+  PUT /api/v1/users/{id} — Update user. Administrator only.
+  All fields are optional: role, isActive, password.
+}

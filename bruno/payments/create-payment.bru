@@ -1,0 +1,38 @@
+meta {
+  name: Create Payment
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/payments
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "houseId": "{{houseId}}",
+    "paymentDate": "2026-02-01",
+    "grossAmount": 600000,
+    "note": "Monthly dues catch-up"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    const body = res.getBody();
+    bru.setEnvVar("paymentId", body.id, { persist: true });
+  }
+}
+
+docs {
+  POST /api/v1/payments — Record a payment. Triggers allocation engine. Administrator and Supervisor.
+
+  Minimum grossAmount is one month's dues at the applicable rate.
+  Response includes allocations, depositBalance, and nextPeriodCovered.
+}

@@ -1,0 +1,27 @@
+meta {
+  name: Update Payment
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/v1/payments/{{paymentId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "paymentDate": "2026-02-01",
+    "grossAmount": 720000,
+    "note": "Updated payment amount"
+  }
+}
+
+docs {
+  PUT /api/v1/payments/{id} — Update payment and re-run allocation engine. Administrator and Supervisor.
+}

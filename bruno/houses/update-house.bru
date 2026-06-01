@@ -1,0 +1,32 @@
+meta {
+  name: Update House
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{baseUrl}}/api/v1/houses/{{houseId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "rtId": "{{rtId}}",
+    "blockCode": "E",
+    "houseNumber": "20",
+    "ownerName": "New Owner",
+    "email": "newowner@example.com",
+    "phone": "081987654321",
+    "activeDate": "2024-01-01"
+  }
+}
+
+docs {
+  PUT /api/v1/houses/{id} — Update house or transfer ownership. Administrator only.
+  The dues ledger (activeDate, payments, arrears) is preserved across owner changes.
+}

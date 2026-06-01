@@ -1,0 +1,19 @@
+meta {
+  name: List Houses by RT
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/houses
+  body: none
+  auth: inherit
+}
+
+params:query {
+  rtId: {{rtId}}
+}
+
+docs {
+  GET /api/v1/houses?rtId={id} — List houses filtered by RT. Administrator only.
+}

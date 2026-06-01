@@ -1,0 +1,33 @@
+meta {
+  name: Create RT
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/rts
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "rtCode": "RT 01",
+    "description": "Neighbourhood unit 01"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    const body = res.getBody();
+    bru.setEnvVar("rtId", body.id, { persist: true });
+  }
+}
+
+docs {
+  POST /api/v1/rts — Create a new RT. Administrator only. Saves rtId to environment.
+}

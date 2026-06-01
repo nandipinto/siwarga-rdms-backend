@@ -1,0 +1,35 @@
+meta {
+  name: Create User
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/users
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "supervisor1",
+    "password": "supervisor123",
+    "role": "SUPERVISOR"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    const body = res.getBody();
+    bru.setEnvVar("userId", body.id, { persist: true });
+  }
+}
+
+docs {
+  POST /api/v1/users — Create a new user. Administrator only.
+  role: ADMINISTRATOR | SUPERVISOR. Saves userId to environment.
+}

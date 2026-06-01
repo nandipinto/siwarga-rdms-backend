@@ -1,0 +1,26 @@
+meta {
+  name: Update RT
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/v1/rts/{{rtId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "rtCode": "RT 01",
+    "description": "Updated description"
+  }
+}
+
+docs {
+  PUT /api/v1/rts/{id} — Update RT. Administrator only.
+}

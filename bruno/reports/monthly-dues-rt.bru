@@ -1,0 +1,20 @@
+meta {
+  name: Monthly Dues (RT)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/reports/dues/monthly
+  body: none
+  auth: inherit
+}
+
+params:query {
+  rtId: {{rtId}}
+}
+
+docs {
+  GET /api/v1/reports/dues/monthly?rtId={id} — Monthly dues summary for one RT. Administrator and Supervisor.
+  scope: RT.
+}

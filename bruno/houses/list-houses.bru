@@ -1,0 +1,15 @@
+meta {
+  name: List Houses
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/houses
+  body: none
+  auth: inherit
+}
+
+docs {
+  GET /api/v1/houses — List all houses. Administrator only.
+}

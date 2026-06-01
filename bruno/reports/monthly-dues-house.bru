@@ -1,0 +1,20 @@
+meta {
+  name: Monthly Dues (House)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/reports/dues/monthly
+  body: none
+  auth: inherit
+}
+
+params:query {
+  houseId: {{houseId}}
+}
+
+docs {
+  GET /api/v1/reports/dues/monthly?houseId={id} — Monthly dues history for one house. Administrator and Supervisor.
+  scope: HOUSE.
+}

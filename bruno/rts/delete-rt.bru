@@ -1,0 +1,15 @@
+meta {
+  name: Delete RT
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/rts/{{rtId}}
+  body: none
+  auth: inherit
+}
+
+docs {
+  DELETE /api/v1/rts/{id} — Delete RT (only if no houses linked). Administrator only. Returns 204.
+}

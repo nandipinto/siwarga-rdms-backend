@@ -1,0 +1,15 @@
+meta {
+  name: List RTs
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/rts
+  body: none
+  auth: inherit
+}
+
+docs {
+  GET /api/v1/rts — List all RTs. Administrator only.
+}
