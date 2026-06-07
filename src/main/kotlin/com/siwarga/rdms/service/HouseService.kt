@@ -3,6 +3,7 @@ package com.siwarga.rdms.service
 import com.siwarga.rdms.domain.House
 import com.siwarga.rdms.repository.HouseRepository
 import com.siwarga.rdms.repository.RtRepository
+import com.siwarga.rdms.web.HouseRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -15,7 +16,7 @@ class HouseService(
 ) {
     fun list(rtId: UUID?): List<House> =
         if (rtId != null) {
-            houseRepository.findByRtId(rtId)
+            houseRepository.findAllByRtId(rtId)
         } else {
             houseRepository.findAll()
         }
@@ -23,25 +24,17 @@ class HouseService(
     fun get(id: UUID): House = houseRepository.findById(id).orElseThrow { NotFoundException("House $id not found") }
 
     @Transactional
-    fun create(
-        rtId: UUID,
-        blockCode: String,
-        houseNumber: String,
-        ownerName: String,
-        email: String,
-        phone: String,
-        activeDate: LocalDate?,
-    ): House {
-        val rt = rtRepository.findById(rtId).orElseThrow { NotFoundException("RT $rtId not found") }
+    fun create(req: HouseRequest): House {
+        val rt = rtRepository.findById(req.rtId).orElseThrow { NotFoundException("RT ${req.rtId} not found") }
         val house =
             House(
                 rt = rt,
-                blockCode = blockCode,
-                houseNumber = houseNumber,
-                ownerName = ownerName,
-                email = email,
-                phone = phone,
-                activeDate = activeDate ?: LocalDate.of(2024, 1, 1),
+                blockCode = req.blockCode,
+                houseNumber = req.houseNumber,
+                ownerName = req.ownerName,
+                email = req.email,
+                phone = req.phone,
+                activeDate = req.activeDate ?: LocalDate.of(2024, 1, 1),
             )
         return houseRepository.save(house)
     }
@@ -49,23 +42,17 @@ class HouseService(
     @Transactional
     fun update(
         id: UUID,
-        rtId: UUID,
-        blockCode: String,
-        houseNumber: String,
-        ownerName: String,
-        email: String,
-        phone: String,
-        activeDate: LocalDate?,
+        req: HouseRequest,
     ): House {
         val house = get(id)
-        val rt = rtRepository.findById(rtId).orElseThrow { NotFoundException("RT $rtId not found") }
+        val rt = rtRepository.findById(req.rtId).orElseThrow { NotFoundException("RT ${req.rtId} not found") }
         house.rt = rt
-        house.blockCode = blockCode
-        house.houseNumber = houseNumber
-        house.ownerName = ownerName
-        house.email = email
-        house.phone = phone
-        if (activeDate != null) house.activeDate = activeDate
+        house.blockCode = req.blockCode
+        house.houseNumber = req.houseNumber
+        house.ownerName = req.ownerName
+        house.email = req.email
+        house.phone = req.phone
+        if (req.activeDate != null) house.activeDate = req.activeDate
         return houseRepository.save(house)
     }
 

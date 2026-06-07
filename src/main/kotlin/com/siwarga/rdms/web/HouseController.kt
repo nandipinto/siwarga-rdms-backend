@@ -24,7 +24,7 @@ class HouseController(
 ) {
     @GetMapping
     fun list(
-        @RequestParam(required = false) rtId: UUID?,
+        @RequestParam(name = "rtId", required = false) rtId: UUID?,
     ): List<HouseResponse> = service.list(rtId).map { it.toResponse() }
 
     @GetMapping("/{id}")
@@ -36,34 +36,13 @@ class HouseController(
     @ResponseStatus(HttpStatus.CREATED)
     fun create(
         @Valid @RequestBody req: HouseRequest,
-    ): HouseResponse =
-        service
-            .create(
-                req.rtId,
-                req.blockCode,
-                req.houseNumber,
-                req.ownerName,
-                req.email,
-                req.phone,
-                req.activeDate,
-            ).toResponse()
+    ): HouseResponse = service.create(req).toResponse()
 
     @PutMapping("/{id}")
     fun update(
         @PathVariable id: UUID,
         @Valid @RequestBody req: HouseRequest,
-    ): HouseResponse =
-        service
-            .update(
-                id,
-                req.rtId,
-                req.blockCode,
-                req.houseNumber,
-                req.ownerName,
-                req.email,
-                req.phone,
-                req.activeDate,
-            ).toResponse()
+    ): HouseResponse = service.update(id, req).toResponse()
 
     // No DELETE: houses are permanent; ownership changes via PUT /houses/{id} (grill Q10).
 

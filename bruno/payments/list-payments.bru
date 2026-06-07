@@ -11,17 +11,12 @@ get {
 }
 
 params:query {
-  ~houseId: {{houseId}}
-  ~rtId: {{rtId}}
-  ~from: 2024-01-01
-  ~to: 2026-12-31
   page: 0
   size: 20
 }
 
 docs {
-  GET /api/v1/payments — List payments (paginated). Administrator and Supervisor.
-
-  Optional filters: houseId, rtId, from, to (ISO dates).
+  GET /api/v1/payments — List all payments (paginated). Administrator and Supervisor.
   Pagination: page (0-based), size (default 20).
+  See also: List Payments by House / RT / Date Range.
 }

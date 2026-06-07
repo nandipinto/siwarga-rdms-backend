@@ -1,0 +1,21 @@
+meta {
+  name: List Payments by House
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/payments
+  body: none
+  auth: inherit
+}
+
+params:query {
+  houseId: {{houseId}}
+  page: 0
+  size: 20
+}
+
+docs {
+  GET /api/v1/payments?houseId={id} — Payments for one house. Administrator and Supervisor.
+}

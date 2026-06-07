@@ -20,7 +20,10 @@ interface RtRepository : JpaRepository<Rt, UUID> {
 }
 
 interface HouseRepository : JpaRepository<House, UUID> {
-    fun findByRtId(rtId: UUID): List<House>
+    @Query("SELECT h FROM House h WHERE h.rt.id = :rtId")
+    fun findAllByRtId(
+        @Param("rtId") rtId: UUID,
+    ): List<House>
 
     fun findByRtRtCodeAndBlockCodeAndHouseNumber(
         rtCode: String,
@@ -33,7 +36,10 @@ interface HouseRepository : JpaRepository<House, UUID> {
         houseNumber: String,
     ): List<House>
 
-    fun existsByRtId(rtId: UUID): Boolean
+    @Query("SELECT COUNT(h) > 0 FROM House h WHERE h.rt.id = :rtId")
+    fun existsByRtId(
+        @Param("rtId") rtId: UUID,
+    ): Boolean
 
     /** Pessimistic write-lock used to serialize per-house recompute (spec §6.4, §8 / grill Q11). */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

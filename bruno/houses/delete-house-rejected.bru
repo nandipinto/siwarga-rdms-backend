@@ -1,0 +1,16 @@
+meta {
+  name: Delete House (Rejected)
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/houses/{{houseId}}
+  body: none
+  auth: inherit
+}
+
+docs {
+  DELETE /api/v1/houses/{id} — Not supported. Houses are permanent (spec §5.3).
+  Returns 405 Method Not Allowed. Use PUT /houses/{id} for ownership changes.
+}

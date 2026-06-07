@@ -1,0 +1,10 @@
+rt_code,block_code,house_number,owner_name,email,phone,active_date
+RT_01,A,1,Siti,siti@example.com,081234567890,2024-01-01
+RT_01,B,2,Budi,budi@example.com,081234567891,2024-01-01
+RT_01,C,3,Ani,ani@example.com,081234567892,2024-01-01
+RT_02,A,4,Rina,rina@example.com,081234567893,2024-01-01
+RT_02,B,5,Andi,andi@example.com,081234567894,2024-01-01
+RT_02,C,6,Lina,lina@example.com,081234567895,2024-01-01
+RT_03,A,7,Tom,tom@gugel.com,081234567896,2024-01-01
+RT_03,B,8,Jane,jane@gugel.com,081234567897,2024-01-01
+RT_03,C,9,Jack,jack@mailme.com,081234567898,2024-01-01

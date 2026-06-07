@@ -23,4 +23,12 @@ docs {
   Roles:
   - ADMINISTRATOR — full access
   - SUPERVISOR — payments and reports only
+
+  Endpoints:
+  - Auth: POST /auth/login
+  - RTs: GET/POST /rts, GET/PUT/DELETE /rts/{id}
+  - Houses: GET/POST /houses, GET/PUT /houses/{id}, POST /houses/import (no DELETE)
+  - Users: GET/POST /users, GET/PUT/DELETE /users/{id}
+  - Payments: GET/POST /payments, GET/PUT/DELETE /payments/{id}, POST /payments/import
+  - Reports: GET /reports/dues/monthly, GET /reports/arrears/{houseId}
 }

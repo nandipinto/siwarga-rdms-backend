@@ -1,5 +1,8 @@
 package com.siwarga.rdms.integration
 
+import com.siwarga.rdms.web.HouseRequest
+import java.time.LocalDate
+import java.util.UUID
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -60,6 +63,24 @@ class RdmsIntegrationTest {
         return h
     }
 
+    private fun houseRequest(
+        rtId: String,
+        blockCode: String,
+        houseNumber: String,
+        ownerName: String,
+        email: String,
+        phone: String = "0811",
+        activeDate: LocalDate = LocalDate.of(2026, 1, 1),
+    ) = HouseRequest(
+        rtId = UUID.fromString(rtId),
+        blockCode = blockCode,
+        houseNumber = houseNumber,
+        ownerName = ownerName,
+        email = email,
+        phone = phone,
+        activeDate = activeDate,
+    )
+
     @Test
     fun `full payment lifecycle and role enforcement`() {
         val adminToken = login("admin", "admin123")
@@ -81,14 +102,13 @@ class RdmsIntegrationTest {
                 "/api/v1/houses",
                 HttpMethod.POST,
                 HttpEntity(
-                    mapOf(
-                        "rtId" to rtId,
-                        "blockCode" to "E",
-                        "houseNumber" to "20",
-                        "ownerName" to "Budi",
-                        "email" to "budi@example.com",
-                        "phone" to "0811",
-                        "activeDate" to "2026-02-01",
+                    houseRequest(
+                        rtId,
+                        "E",
+                        "20",
+                        "Budi",
+                        "budi@example.com",
+                        activeDate = LocalDate.of(2026, 2, 1),
                     ),
                     headers(adminToken),
                 ),
@@ -171,6 +191,87 @@ class RdmsIntegrationTest {
     }
 
     @Test
+    fun `list houses filters by rtId`() {
+        val adminToken = login("admin", "admin123")
+        val rt1 =
+            rest
+                .exchange(
+                    "/api/v1/rts",
+                    HttpMethod.POST,
+                    HttpEntity(mapOf("rtCode" to "RT A"), headers(adminToken)),
+                    Map::class.java,
+                ).body!!["id"] as String
+        val rt2 =
+            rest
+                .exchange(
+                    "/api/v1/rts",
+                    HttpMethod.POST,
+                    HttpEntity(mapOf("rtCode" to "RT B"), headers(adminToken)),
+                    Map::class.java,
+                ).body!!["id"] as String
+
+        fun createHouse(
+            rtId: String,
+            block: String,
+            num: String,
+        ) {
+            rest.exchange(
+                "/api/v1/houses",
+                HttpMethod.POST,
+                HttpEntity(
+                    houseRequest(
+                        rtId,
+                        block,
+                        num,
+                        "Owner $block$num",
+                        "$block$num@test.com",
+                    ),
+                    headers(adminToken),
+                ),
+                Map::class.java,
+            )
+        }
+
+        val before =
+            rest
+                .exchange(
+                    "/api/v1/houses?rtId=$rt1",
+                    HttpMethod.GET,
+                    HttpEntity<Void>(headers(adminToken)),
+                    List::class.java,
+                ).body!!
+                .size
+
+        createHouse(rt1, "A", "1")
+        createHouse(rt1, "A", "2")
+        createHouse(rt2, "B", "1")
+
+        val filtered =
+            rest.exchange(
+                "/api/v1/houses?rtId=$rt1",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers(adminToken)),
+                List::class.java,
+            )
+        assertEquals(HttpStatus.OK, filtered.statusCode)
+        assertEquals(before + 2, filtered.body!!.size)
+        filtered.body!!.forEach { house ->
+            assertEquals(rt1, (house as Map<*, *>)["rtId"].toString())
+        }
+
+        val otherRt =
+            rest
+                .exchange(
+                    "/api/v1/houses?rtId=$rt2",
+                    HttpMethod.GET,
+                    HttpEntity<Void>(headers(adminToken)),
+                    List::class.java,
+                ).body!!
+        assertEquals(1, otherRt.size)
+        assertEquals(rt2, (otherRt.single() as Map<*, *>)["rtId"].toString())
+    }
+
+    @Test
     fun `house csv import upserts and reports row errors`() {
         val adminToken = login("admin", "admin123")
         rest.exchange(
@@ -232,15 +333,7 @@ class RdmsIntegrationTest {
                         "/api/v1/houses",
                         HttpMethod.POST,
                         HttpEntity(
-                            mapOf(
-                                "rtId" to rtId,
-                                "blockCode" to "C",
-                                "houseNumber" to "9",
-                                "ownerName" to "Old Owner",
-                                "email" to "old@x.com",
-                                "phone" to "01",
-                                "activeDate" to "2026-01-01",
-                            ),
+                            houseRequest(rtId, "C", "9", "Old Owner", "old@x.com", "01"),
                             headers(adminToken),
                         ),
                         Map::class.java,
@@ -270,15 +363,7 @@ class RdmsIntegrationTest {
                 "/api/v1/houses/$houseId",
                 HttpMethod.PUT,
                 HttpEntity(
-                    mapOf(
-                        "rtId" to rtId,
-                        "blockCode" to "C",
-                        "houseNumber" to "9",
-                        "ownerName" to "New Owner",
-                        "email" to "new@x.com",
-                        "phone" to "02",
-                        "activeDate" to "2026-01-01",
-                    ),
+                    houseRequest(rtId, "C", "9", "New Owner", "new@x.com", "02"),
                     headers(adminToken),
                 ),
                 Map::class.java,

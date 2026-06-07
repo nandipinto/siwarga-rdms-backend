@@ -1,0 +1,22 @@
+meta {
+  name: List Payments by Date Range
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/payments
+  body: none
+  auth: inherit
+}
+
+params:query {
+  from: 2024-01-01
+  to: 2026-12-31
+  page: 0
+  size: 20
+}
+
+docs {
+  GET /api/v1/payments?from=&to= — Payments within a date range (ISO dates). Administrator and Supervisor.
+}

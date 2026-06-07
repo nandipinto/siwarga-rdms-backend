@@ -1,0 +1,21 @@
+meta {
+  name: List Payments by RT
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/payments
+  body: none
+  auth: inherit
+}
+
+params:query {
+  rtId: {{rtId}}
+  page: 0
+  size: 20
+}
+
+docs {
+  GET /api/v1/payments?rtId={id} — Payments for all houses in one RT. Administrator and Supervisor.
+}
