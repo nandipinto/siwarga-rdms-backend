@@ -391,4 +391,173 @@ class RdmsIntegrationTest {
             )
         assertTrue(del.statusCode.is4xxClientError)
     }
+
+    @Test
+    fun `rental guarantee collect lease end refund and new tenant while pending`() {
+        val adminToken = login("admin", "admin123")
+        val rtId =
+            rest
+                .exchange(
+                    "/api/v1/rts",
+                    HttpMethod.POST,
+                    HttpEntity(mapOf("rtCode" to "RT RG"), headers(adminToken)),
+                    Map::class.java,
+                ).body!!["id"] as String
+
+        val rentedHouse =
+            mapOf(
+                "rtId" to rtId,
+                "blockCode" to "R",
+                "houseNumber" to "1",
+                "ownerName" to "Budi Owner",
+                "email" to "budi@example.com",
+                "phone" to "081111",
+                "activeDate" to "2024-01-01",
+                "status" to "RENTED",
+                "tenantName" to "Andi Tenant",
+                "tenantEmail" to "andi@example.com",
+                "tenantPhone" to "082222",
+                "leaseDurationMonths" to 12,
+                "rentalGuaranteeAmountIdr" to 300000,
+            )
+        val createRes =
+            rest.exchange(
+                "/api/v1/houses",
+                HttpMethod.POST,
+                HttpEntity(rentedHouse, headers(adminToken)),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.CREATED, createRes.statusCode)
+        val houseId = createRes.body!!["id"] as String
+        val rg = createRes.body!!["rentalGuarantee"] as Map<*, *>
+        assertEquals("UNPAID", rg["status"])
+        assertEquals(300000, (rg["amountIdr"] as Number).toInt())
+
+        val payRes =
+            rest.exchange(
+                "/api/v1/rental-guarantee/payments",
+                HttpMethod.POST,
+                HttpEntity(
+                    mapOf("houseId" to houseId, "paymentDate" to "2026-06-01", "amountIdr" to 300000),
+                    headers(adminToken),
+                ),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.CREATED, payRes.statusCode)
+        assertTrue((payRes.body!!["receiptNumber"] as String).startsWith("RG-"))
+
+        val paidHouse =
+            rest
+                .exchange(
+                    "/api/v1/houses/$houseId",
+                    HttpMethod.GET,
+                    HttpEntity<Void>(headers(adminToken)),
+                    Map::class.java,
+                ).body!!
+        assertEquals("PAID", (paidHouse["rentalGuarantee"] as Map<*, *>)["status"])
+
+        // End lease -> auto PENDING refund
+        val endLease =
+            rest.exchange(
+                "/api/v1/houses/$houseId",
+                HttpMethod.PUT,
+                HttpEntity(
+                    rentedHouse + mapOf("status" to "OWNED"),
+                    headers(adminToken),
+                ),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.OK, endLease.statusCode)
+        assertEquals("OWNED", endLease.body!!["status"])
+        assertEquals(null, endLease.body!!["tenantName"])
+
+        val refunds =
+            rest.exchange(
+                "/api/v1/rental-guarantee/refunds?houseId=$houseId&status=PENDING",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers(adminToken)),
+                List::class.java,
+            )
+        assertEquals(HttpStatus.OK, refunds.statusCode)
+        assertEquals(1, refunds.body!!.size)
+        val refundId = (refunds.body!!.first() as Map<*, *>)["id"] as String
+        assertEquals("Andi Tenant", (refunds.body!!.first() as Map<*, *>)["refundedToName"])
+
+        // New tenant while refund still pending — must succeed
+        val newTenant =
+            rest.exchange(
+                "/api/v1/houses/$houseId",
+                HttpMethod.PUT,
+                HttpEntity(
+                    mapOf(
+                        "rtId" to rtId,
+                        "blockCode" to "R",
+                        "houseNumber" to "1",
+                        "ownerName" to "Budi Owner",
+                        "email" to "budi@example.com",
+                        "phone" to "081111",
+                        "status" to "RENTED",
+                        "tenantName" to "Cici Tenant",
+                        "tenantEmail" to "cici@example.com",
+                        "tenantPhone" to "083333",
+                        "leaseDurationMonths" to 12,
+                    ),
+                    headers(adminToken),
+                ),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.OK, newTenant.statusCode)
+        assertEquals("Cici Tenant", newTenant.body!!["tenantName"])
+        assertEquals("UNPAID", (newTenant.body!!["rentalGuarantee"] as Map<*, *>)["status"])
+
+        // Complete original refund
+        val complete =
+            rest.exchange(
+                "/api/v1/rental-guarantee/refunds/$refundId/complete",
+                HttpMethod.POST,
+                HttpEntity(mapOf("refundDate" to "2026-12-01"), headers(adminToken)),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.OK, complete.statusCode)
+        assertEquals("COMPLETED", complete.body!!["status"])
+        assertTrue((complete.body!!["refundNumber"] as String).startsWith("RF-"))
+
+        // Supervisor can record guarantee payment for new tenant
+        val userRes =
+            rest.exchange(
+                "/api/v1/users",
+                HttpMethod.POST,
+                HttpEntity(
+                    mapOf("username" to "spv2", "password" to "spvpass2", "role" to "SUPERVISOR"),
+                    headers(adminToken),
+                ),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.CREATED, userRes.statusCode)
+        val spvToken = login("spv2", "spvpass2")
+        val spvPay =
+            rest.exchange(
+                "/api/v1/rental-guarantee/payments",
+                HttpMethod.POST,
+                HttpEntity(
+                    mapOf("houseId" to houseId, "paymentDate" to "2026-12-02", "amountIdr" to 300000),
+                    headers(spvToken),
+                ),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.CREATED, spvPay.statusCode)
+
+        // Wrong amount rejected
+        val badAmount =
+            rest.exchange(
+                "/api/v1/rental-guarantee/payments",
+                HttpMethod.POST,
+                HttpEntity(
+                    mapOf("houseId" to houseId, "paymentDate" to "2026-12-03", "amountIdr" to 100000),
+                    headers(adminToken),
+                ),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.BAD_REQUEST, badAmount.statusCode)
+    }
 }

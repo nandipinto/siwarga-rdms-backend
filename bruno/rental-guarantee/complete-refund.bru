@@ -1,0 +1,27 @@
+meta {
+  name: Complete Refund
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/v1/rental-guarantee/refunds/{{guaranteeRefundId}}/complete
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "refundDate": "2026-12-01",
+    "note": "Cash returned to tenant"
+  }
+}
+
+docs {
+  POST /api/v1/rental-guarantee/refunds/{id}/complete — Mark PENDING refund as returned.
+  Issues refundNumber (RF-…). Full amount only. Administrator and Supervisor.
+}

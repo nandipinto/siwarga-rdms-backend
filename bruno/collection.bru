@@ -22,7 +22,7 @@ docs {
 
   Roles:
   - ADMINISTRATOR — full access
-  - SUPERVISOR — payments and reports only
+  - SUPERVISOR — dues payments, rental-guarantee receipts/refunds, and reports only
 
   Endpoints:
   - Auth: POST /auth/login
@@ -30,5 +30,9 @@ docs {
   - Houses: GET/POST /houses, GET/PUT /houses/{id}, POST /houses/import (no DELETE)
   - Users: GET/POST /users, GET/PUT/DELETE /users/{id}
   - Payments: GET/POST /payments, GET/PUT/DELETE /payments/{id}, POST /payments/import
+  - Rental Guarantee: GET/POST /rental-guarantee/payments, GET/PUT/DELETE /rental-guarantee/payments/{id},
+    POST /rental-guarantee/payments/import, GET /rental-guarantee/refunds,
+    GET /rental-guarantee/refunds/{id}, POST /rental-guarantee/refunds/{id}/complete,
+    DELETE /rental-guarantee/refunds/{id}
   - Reports: GET /reports/dues/monthly, GET /reports/arrears/{houseId}
 }

@@ -1,9 +1,9 @@
 # Resident Dues Management System — Technical Specification
 
-> **Document Status:** Draft v1.1
+> **Document Status:** Draft v1.4
 > **Prepared for:** AI Coding Agents / Backend Developers
 > **Effective Date:** 2026-05-31
-> **Last Updated:** 2026-06-01
+> **Last Updated:** 2026-06-10
 > **System Start Date:** 1 January 2024
 
 ---
@@ -14,6 +14,9 @@
 |---|---|---|
 | v1.0 | 2026-05-31 | Initial specification. |
 | v1.1 | 2026-06-01 | Synced to implementation after a design review resolved ambiguous wording. Five behavioral clarifications: (1) prepayment discount applies to the forward block when the account is clean **after** a payment clears arrears/penalties — not only when clean before (§2.3, §6.4); (2) the minimum-payment floor is measured on **gross** alone, deposit applies during allocation (§2.2); (3) penalties are a **pure recomputed function** of history with no ledger, §6.3 is canonical over §2.4; (4) **houses are permanent** — no soft-delete, no `DELETE`; ownership changes via `PUT` (§3.2, §5.3); (5) per-house **pessimistic lock** + deterministic same-date payment ordering for atomic recompute (§6.2, §6.4). Monthly-dues report shape defined with discount reconciliation (§5.5). Tech-stack choices pinned (§7). |
+| v1.2 | 2026-06-09 | Added **Rental Guarantee** domain concept (§1.1), occupancy `status` on House (§3.2), rental-guarantee business rules with configurable duration threshold and default amount (§2.5, §3.6), tenant contact fields (`tenant_name`, `tenant_email`, `tenant_phone`) on House when `status = RENTED`, exclusive physical occupancy (`OWNED` = owner resides; `RENTED` = tenant resides, owner elsewhere), and House API/CSV field updates (§5.3, §9.1). |
+| v1.3 | 2026-06-10 | Added rental-guarantee **payment tracking and receipts** — `RentalGuaranteePayment` entity (§3.7), obligation-cycle model via `rental_guarantee_obligation_id` on House (§3.2), collection rules (§2.6), CRUD API + receipt response (§5.6), access matrix update (§4.2), optional CSV import (§9.3). |
+| v1.4 | 2026-06-10 | Added rental-guarantee **refund on lease end** — `RentalGuaranteeRefund` entity (§3.8), refund rules (§2.7), tenant contact snapshots on payment, auto `PENDING` refund on lease termination, refund completion API (§5.7). Clarified pending refunds do **not** block new-tenant registration (§2.7). |
 
 ---
 
@@ -42,11 +45,16 @@ This document defines the complete functional and technical requirements for the
 |---|---|
 | **Cluster** | A residential compound divided into multiple RT (Rukun Tetangga) neighbourhood units. |
 | **RT** | A sub-unit of the cluster (e.g. RT 01, RT 02, RT 03). Managed by the Administrator. |
-| **House / Residence** | Identified by block code and house number (e.g. Block E, No. 20). Each house has exactly one head-of-household (KK). |
-| **Head of Household (KK)** | The registered representative of a house. Carries a name, email address, and phone number. |
+| **House / Residence** | Identified by block code and house number (e.g. Block E, No. 20). At any time exactly one person **resides** in the house: the owner (`OWNED`) or the tenant (`RENTED`). The property owner is always registered separately as the dues contact. |
+| **Owner** | The legal property owner. Always registered on the house as `owner_name`, `email`, `phone`. When `status = OWNED`, the owner **resides** in the house. When `status = RENTED`, the owner **does not** reside in the house — contact fields are for dues/admin correspondence only. |
+| **Tenant** | The person **residing** in the house when `status = RENTED`. Stored as `tenant_name`, `tenant_email`, `tenant_phone`. Mutually exclusive with owner occupancy — owner and tenant never live in the same house simultaneously. |
 | **Active Date** | The date from which dues obligations begin for a house. Defaults to **1 January 2024**. |
 | **Dues Period** | A calendar month. Dues obligations start from the house Active Date. |
 | **Deposit** | A partial prepayment less than one full month's dues, held as credit and applied against the next payment. |
+| **Rental Guarantee** | One-time insurance/guarantee fee (*jaminan sewa*) owed when a house is **rented** (leased to a tenant) for a duration at or above a configurable threshold. Distinct from **Deposit** (dues prepayment credit). Obligation amount is set per house at registration or activation; collection is recorded separately via a **Rental Guarantee Receipt**. |
+| **Rental Guarantee Receipt** | Proof of guarantee-fee payment. Auto-generated `receipt_number`, linked to the house and an **obligation cycle**. Does not pass through the monthly-dues allocation engine (§6.4). |
+| **Rental Guarantee Refund** | Return of the collected guarantee fee to the tenant when a lease ends. Linked 1:1 to the original receipt; tracked as `PENDING` until cash is returned. |
+| **Occupancy Status** | Who **physically resides** in the house: `OWNED` (owner lives there) or `RENTED` (tenant lives there; owner lives elsewhere). Owner and tenant contacts are always stored separately. |
 | **Arrears** | Unpaid monthly dues accumulated past their due date. |
 | **Penalty** | A surcharge applied automatically when arrears reach specified thresholds. |
 
@@ -132,6 +140,111 @@ Penalties are assessed automatically based on **consecutive months without any p
 
 ---
 
+### 2.5 Rental Guarantee Rules
+
+When a house is occupied by a **tenant** (`status = RENTED`) under a lease whose duration meets or exceeds a configurable minimum, the tenant must pay a **Rental Guarantee** fee. The obligation amount is stored on the house at registration or when occupancy/lease details are updated. Actual collection is tracked via `RentalGuaranteePayment` receipts (§2.6, §3.7) — **not** via the monthly-dues `Payment` / allocation engine (§6.4).
+
+| Setting | Default | Description |
+|---|---|---|
+| `rdms.rental-guarantee.min-duration-months` | `6` | Minimum lease length (months) that triggers the guarantee obligation |
+| `rdms.rental-guarantee.default-amount-idr` | `300000` | Default guarantee amount (Rp 300,000) pre-filled on create; overridable per house |
+
+**Rules:**
+
+1. `status = OWNED` → `tenant_name`, `tenant_email`, `tenant_phone`, `lease_duration_months`, and `rental_guarantee_amount_idr` **MUST** be `NULL`. No guarantee applies.
+2. `status = RENTED` → `tenant_name`, `tenant_email`, `tenant_phone`, and `lease_duration_months` **MUST** be provided (`lease_duration_months` a positive integer).
+3. If `lease_duration_months >= min-duration-months` → `rental_guarantee_amount_idr` **MUST** be provided and `> 0`. On create, default to `default-amount-idr` when omitted; Administrator may override.
+4. If `lease_duration_months < min-duration-months` → `rental_guarantee_amount_idr` **MUST** be `NULL` (no guarantee obligation).
+5. Changing `status` from `RENTED` to `OWNED` clears `tenant_name`, `tenant_email`, `tenant_phone`, `lease_duration_months`, `rental_guarantee_amount_idr`, and `rental_guarantee_obligation_id`.
+6. **Physical occupancy is exclusive:** `OWNED` means the owner resides in the house and no tenant is registered. `RENTED` means a tenant resides in the house and the owner does **not** — the owner's `owner_name` / `email` / `phone` remain the off-premises dues contact.
+
+> **NOTE:** `status` reflects **who lives in the house**, not legal title. The permanent house record and dues ledger remain house-anchored to the property owner (§3.2).
+
+---
+
+### 2.6 Rental Guarantee Collection Rules
+
+Guarantee-fee payments are recorded as **receipts** in `RentalGuaranteePayment` (§3.7). They are independent of dues `Payment` rows.
+
+**Obligation cycle**
+
+Each time a guarantee obligation becomes due or changes, the system assigns a new `rental_guarantee_obligation_id` (UUID) on the house. A new obligation is created when:
+
+- A house is created or updated to `status = RENTED` with `rental_guarantee_amount_idr` set (§2.5 rule 3), or
+- While `status = RENTED`, any of `tenant_name`, `tenant_email`, `tenant_phone`, `lease_duration_months`, or `rental_guarantee_amount_idr` changes and a guarantee still applies.
+
+The previous obligation's receipts remain in the database for audit; they no longer satisfy the new obligation.
+
+**Payment / receipt rules**
+
+1. A guarantee receipt may be recorded only when the house has a non-null `rental_guarantee_obligation_id` and `rental_guarantee_amount_idr`.
+2. `amount_idr` on the receipt **MUST** equal `rental_guarantee_amount_idr` exactly — partial or excess payments are rejected.
+3. At most **one** receipt per obligation cycle — enforce `UNIQUE (obligation_id)` on `RentalGuaranteePayment`.
+4. `paid_by_name`, `paid_by_email`, and `paid_by_phone` are auto-populated from the house's current `tenant_name`, `tenant_email`, and `tenant_phone` at receipt creation (immutable snapshots used later for refunds, §2.7).
+5. On create, the system auto-generates an immutable `receipt_number` (format §3.7). This is the printable receipt identifier.
+6. `PUT` on a receipt may update `payment_date` and `note` only. `amount_idr`, `obligation_id`, `receipt_number`, and `paid_by_name` are immutable.
+7. `DELETE` removes the receipt only when no `RentalGuaranteeRefund` exists for it; otherwise rejected. Deleting an unrefunded receipt on the **current** obligation returns that obligation to **UNPAID**.
+8. Guarantee receipts do **not** affect dues arrears, penalties, deposit, or `PaymentAllocation` (§6.4).
+
+**Paid / unpaid status**
+
+For the house's **current** `rental_guarantee_obligation_id`:
+
+- **UNPAID** — no `RentalGuaranteePayment` row with matching `obligation_id`.
+- **PAID** — exactly one matching receipt exists.
+
+---
+
+### 2.7 Rental Guarantee Refund Rules
+
+When a lease ends, any guarantee fee collected for that lease **must be returned** to the tenant who paid it. Refunds are tracked in `RentalGuaranteeRefund` (§3.8) — separate from collection receipts and from dues payments.
+
+**Lease termination events**
+
+A lease is considered ended when `PUT /houses/{id}` (or CSV upsert) closes the current obligation cycle:
+
+1. `status` changes from `RENTED` to `OWNED` (rent over; owner moves back in), or
+2. While `status = RENTED`, any of `tenant_name`, `tenant_email`, `tenant_phone`, `lease_duration_months`, or `rental_guarantee_amount_idr` changes (new tenant or new lease terms).
+
+**Auto-refund trigger**
+
+Inside the same transaction as the house update, **before** clearing tenant fields or assigning a new `rental_guarantee_obligation_id`:
+
+1. Look up `RentalGuaranteePayment` for the house's **current** `rental_guarantee_obligation_id`.
+2. If a receipt exists and has no `RentalGuaranteeRefund` row yet → create a refund record with `status = PENDING`.
+3. Snapshot `refunded_to_name` / `refunded_to_email` / `refunded_to_phone` from the receipt's `paid_by_*` fields (§3.7) — not from the incoming request — so recipient identity survives after tenant fields are cleared.
+4. Then apply the house update (clear tenant / regenerate obligation) per §2.5.
+
+> **NOTE:** House updates are **not blocked** by a pending refund. Administrators may end the lease first and process the physical return later. Pending refunds surface via list/report endpoints (§5.7).
+
+**No gate on new tenants**
+
+A `PENDING` or `COMPLETED` refund for a **previous** obligation cycle **MUST NOT** block:
+
+- Registering a new tenant on the same house (`status = RENTED` with new `tenant_*` / lease fields),
+- Transitioning `OWNED` → `RENTED` for a new lease, or
+- Collecting a new guarantee payment for the new `rental_guarantee_obligation_id`.
+
+Outstanding refunds are tracked independently per closed obligation. The system **MUST NOT** reject house create/update or guarantee receipt create solely because an earlier refund is still `PENDING`.
+
+**Refund completion rules**
+
+1. Only a `PENDING` refund may be completed.
+2. `amount_idr` on the refund **MUST** equal the linked receipt's `amount_idr` exactly — full refund only; partial refunds are rejected.
+3. Completing a refund sets `status = COMPLETED`, records `refund_date`, and generates an immutable `refund_number` (format §3.8).
+4. A receipt with a `COMPLETED` refund cannot be deleted. A receipt with a `PENDING` refund cannot be deleted — cancel the refund first (§5.7).
+5. Refunds do **not** affect dues arrears, penalties, deposit, or `PaymentAllocation` (§6.4).
+
+**Receipt lifecycle (per obligation cycle)**
+
+```
+(no receipt) → UNPAID → (payment recorded) → PAID → (lease ends) → REFUND_PENDING → (refund completed) → REFUNDED
+```
+
+If the lease ends but no guarantee was ever collected for that obligation, no refund row is created.
+
+---
+
 ## 3. Data Model
 
 ### 3.1 Entity: RT (Neighbourhood Unit)
@@ -154,16 +267,31 @@ Penalties are assessed automatically based on **consecutive months without any p
 | `rt_id` | FK → RT.id | NOT NULL | The RT this house belongs to |
 | `block_code` | VARCHAR(10) | NOT NULL | Block identifier, e.g. `"E"` |
 | `house_number` | VARCHAR(10) | NOT NULL | House number, e.g. `"20"` |
-| `owner_name` | VARCHAR(200) | NOT NULL | Name of the head of household |
-| `email` | VARCHAR(255) | NOT NULL | Contact email address |
-| `phone` | VARCHAR(30) | NOT NULL | Contact phone / WhatsApp number |
+| `owner_name` | VARCHAR(200) | NOT NULL | Name of the property owner (dues contact; resides in house only when `status = OWNED`) |
+| `email` | VARCHAR(255) | NOT NULL | Owner contact email — off-premises when `status = RENTED` |
+| `phone` | VARCHAR(30) | NOT NULL | Owner contact phone / WhatsApp — off-premises when `status = RENTED` |
 | `active_date` | DATE | NOT NULL, DEFAULT `2024-01-01` | Date from which dues are calculated |
+| `status` | ENUM | NOT NULL, DEFAULT `OWNED` | Who resides in the house: `OWNED` (owner lives there) \| `RENTED` (tenant lives there; owner elsewhere) |
+| `tenant_name` | VARCHAR(200) | NULLABLE | Name of the resident tenant; **required** when `status = RENTED`, otherwise `NULL` |
+| `tenant_email` | VARCHAR(255) | NULLABLE | Resident tenant email; **required** when `status = RENTED`, otherwise `NULL` |
+| `tenant_phone` | VARCHAR(30) | NULLABLE | Resident tenant phone / WhatsApp; **required** when `status = RENTED`, otherwise `NULL` |
+| `lease_duration_months` | SMALLINT | NULLABLE | Lease length in whole months; **required** when `status = RENTED`, otherwise `NULL` |
+| `rental_guarantee_amount_idr` | BIGINT (IDR) | NULLABLE | Rental Guarantee fee for this house; **required** when `status = RENTED` and `lease_duration_months >= min-duration-months` (§2.5), otherwise `NULL` |
+| `rental_guarantee_obligation_id` | UUID | NULLABLE | Identifies the **current** guarantee obligation cycle; set when obligation due, cleared when `OWNED` or no guarantee; regenerated on obligation change (§2.6) |
 | `created_at` | TIMESTAMPTZ | NOT NULL | Record creation timestamp |
 | `updated_at` | TIMESTAMPTZ | NOT NULL | Last modification timestamp |
 
 **Composite unique index:** `(rt_id, block_code, house_number)`
 
-> **NOTE:** A House is a **permanent** physical residence — it is never deleted and has no soft-delete flag. When the head of household changes, the `owner_name` / `email` / `phone` fields are updated in place (current-owner snapshot). The dues ledger (`active_date`, payments, arrears, penalties, deposit) is **house-anchored** and carries across owners unchanged.
+**Check constraints (recommended):**
+
+- `(status = 'OWNED' AND tenant_name IS NULL AND tenant_email IS NULL AND tenant_phone IS NULL AND lease_duration_months IS NULL AND rental_guarantee_amount_idr IS NULL AND rental_guarantee_obligation_id IS NULL) OR (status = 'RENTED' AND tenant_name IS NOT NULL AND tenant_email IS NOT NULL AND tenant_phone IS NOT NULL AND lease_duration_months IS NOT NULL AND lease_duration_months > 0)`
+- When `rental_guarantee_amount_idr IS NOT NULL`: `rental_guarantee_obligation_id IS NOT NULL`
+- When `rental_guarantee_amount_idr IS NULL`: `rental_guarantee_obligation_id IS NULL`
+- When `status = 'RENTED'` and `lease_duration_months < min-duration-months`: `rental_guarantee_amount_idr IS NULL`
+- When `status = 'RENTED'` and `lease_duration_months >= min-duration-months`: `rental_guarantee_amount_idr IS NOT NULL AND rental_guarantee_amount_idr > 0`
+
+> **NOTE:** A House is a **permanent** physical residence — it is never deleted and has no soft-delete flag. When the property owner changes, `owner_name` / `email` / `phone` are updated in place. When a house transitions to `RENTED`, the owner stops residing there and tenant contact is recorded; reverting to `OWNED` clears the tenant (owner moves back in). The dues ledger (`active_date`, payments, arrears, penalties, deposit) is **house-anchored** to the property and carries across owner/tenant changes unchanged.
 
 ---
 
@@ -212,6 +340,77 @@ Normalises how a single Payment is distributed across periods and penalty items.
 
 ---
 
+### 3.6 Rental Guarantee Configuration
+
+Global defaults for §2.5 and receipt generation (§3.7). Stored in `application.properties` / environment variables — no separate DB table required.
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `rdms.rental-guarantee.min-duration-months` | INTEGER | `6` | Lease-length threshold (months) that triggers guarantee obligation |
+| `rdms.rental-guarantee.default-amount-idr` | BIGINT | `300000` | Default `rental_guarantee_amount_idr` on house create when guarantee applies and amount omitted |
+| `rdms.rental-guarantee.receipt-prefix` | STRING | `RG` | Prefix for auto-generated `receipt_number` values |
+| `rdms.rental-guarantee.refund-prefix` | STRING | `RF` | Prefix for auto-generated `refund_number` values |
+
+Per-house `rental_guarantee_amount_idr` on `House` (§3.2) holds the authoritative obligation amount once set.
+
+---
+
+### 3.7 Entity: RentalGuaranteePayment
+
+Records collection of a Rental Guarantee fee. Separate from dues `Payment` (§3.3).
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | UUID | PK | Surrogate primary key |
+| `house_id` | FK → House.id | NOT NULL | House that owed the guarantee |
+| `obligation_id` | UUID | NOT NULL, UNIQUE | Must match `House.rental_guarantee_obligation_id` at time of payment (§2.6) |
+| `receipt_number` | VARCHAR(30) | UNIQUE, NOT NULL | Auto-generated receipt identifier, e.g. `"RG-2026-000042"` — immutable |
+| `payment_date` | DATE | NOT NULL | Calendar date the guarantee fee was received |
+| `amount_idr` | BIGINT (IDR) | NOT NULL, > 0 | Must equal `rental_guarantee_amount_idr` of the obligation |
+| `paid_by_name` | VARCHAR(200) | NOT NULL | Tenant name snapshot at receipt creation |
+| `paid_by_email` | VARCHAR(255) | NOT NULL | Tenant email snapshot at receipt creation |
+| `paid_by_phone` | VARCHAR(30) | NOT NULL | Tenant phone snapshot at receipt creation |
+| `note` | TEXT | NULLABLE | Optional reference / description |
+| `created_by` | FK → AppUser.id | NOT NULL | User who recorded the receipt |
+| `created_at` | TIMESTAMPTZ | NOT NULL | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | NOT NULL | Last modification timestamp |
+
+**Receipt number generation:** `{prefix}-{YYYY}-{sequence}` where `prefix` defaults to `RG` (`rdms.rental-guarantee.receipt-prefix`, §3.6) and `sequence` is a zero-padded monotonic counter per calendar year (e.g. 6 digits). Generated inside the same DB transaction as receipt insert.
+
+**Indexes:** `(house_id)`, `(obligation_id)` UNIQUE, `(receipt_number)` UNIQUE, `(payment_date)`.
+
+---
+
+### 3.8 Entity: RentalGuaranteeRefund
+
+Records return of a guarantee fee when a lease ends. One refund per receipt.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | UUID | PK | Surrogate primary key |
+| `payment_id` | FK → RentalGuaranteePayment.id | NOT NULL, UNIQUE | The receipt being refunded |
+| `house_id` | FK → House.id | NOT NULL | Denormalised for listing/filtering |
+| `obligation_id` | UUID | NOT NULL | Obligation cycle the refund closes (copied from receipt) |
+| `refund_number` | VARCHAR(30) | UNIQUE, NULLABLE | Auto-generated on completion, e.g. `"RF-2026-000012"` — immutable once set |
+| `status` | ENUM | NOT NULL | `PENDING` \| `COMPLETED` |
+| `amount_idr` | BIGINT (IDR) | NOT NULL, > 0 | Must equal linked receipt `amount_idr` |
+| `refunded_to_name` | VARCHAR(200) | NOT NULL | Tenant name snapshot (from receipt `paid_by_name`) |
+| `refunded_to_email` | VARCHAR(255) | NOT NULL | Tenant email snapshot (from receipt `paid_by_email`) |
+| `refunded_to_phone` | VARCHAR(30) | NOT NULL | Tenant phone snapshot (from receipt `paid_by_phone`) |
+| `refund_date` | DATE | NULLABLE | Date cash was returned; **required** when `status = COMPLETED` |
+| `note` | TEXT | NULLABLE | Optional reference / description |
+| `created_by` | FK → AppUser.id | NOT NULL | User who triggered lease termination (auto-created refund) |
+| `completed_by` | FK → AppUser.id | NULLABLE | User who recorded refund completion |
+| `created_at` | TIMESTAMPTZ | NOT NULL | When lease ended and refund became due |
+| `completed_at` | TIMESTAMPTZ | NULLABLE | When refund was marked completed |
+| `updated_at` | TIMESTAMPTZ | NOT NULL | Last modification timestamp |
+
+**Refund number generation:** `{prefix}-{YYYY}-{sequence}` where `prefix` defaults to `RF` (`rdms.rental-guarantee.refund-prefix`, §3.6). Generated on completion, same transaction as status → `COMPLETED`.
+
+**Indexes:** `(payment_id)` UNIQUE, `(house_id)`, `(status)`, `(refund_number)` UNIQUE partial where not null.
+
+---
+
 ## 4. Access Control
 
 ### 4.1 Role Definitions
@@ -219,7 +418,7 @@ Normalises how a single Payment is distributed across periods and penalty items.
 | Role | Permissions |
 |---|---|
 | **ADMINISTRATOR** | Full access — all operations on all resources. |
-| **SUPERVISOR** | Payment management only: Create, Read, Update, Delete payments and payment allocations. No access to RT or House management, user management, or CSV imports. |
+| **SUPERVISOR** | Payment management only: Create, Read, Update, Delete dues payments, rental-guarantee receipts, and rental-guarantee refunds. No access to RT or House management, user management, or CSV imports. |
 
 ### 4.2 Endpoint-Level Access Matrix
 
@@ -231,6 +430,9 @@ Normalises how a single Payment is distributed across periods and penalty items.
 | User Management | ✅ | ❌ |
 | Payment Management (CRUD) | ✅ | ✅ |
 | Payment CSV Import | ✅ | ❌ |
+| Rental Guarantee Receipt Management (CRUD) | ✅ | ✅ |
+| Rental Guarantee Refund Management | ✅ | ✅ |
+| Rental Guarantee CSV Import | ✅ | ❌ |
 | Arrears & Penalty Report | ✅ | ✅ |
 | Monthly Dues Report | ✅ | ✅ |
 
@@ -267,16 +469,39 @@ Normalises how a single Payment is distributed across periods and penalty items.
 |---|---|:---:|---|
 | GET | `/houses` | 200 | List all houses (filterable by `rt_id`) |
 | POST | `/houses` | 201 | Create a new house |
-| GET | `/houses/{id}` | 200 | Get house by ID |
-| PUT | `/houses/{id}` | 200 | Update house — also the mechanism for an **ownership change** (update `owner_name`/`email`/`phone`) |
+| GET | `/houses/{id}` | 200 | Get house by ID (includes `rental_guarantee` summary per §5.6 when applicable) |
+| PUT | `/houses/{id}` | 200 | Update house — also the mechanism for an **ownership change** (update `owner_name`/`email`/`phone`) or occupancy/lease change (`status`, `tenant_name`/`tenant_email`/`tenant_phone`, `lease_duration_months`, `rental_guarantee_amount_idr`). Lease termination auto-creates a `PENDING` refund when applicable (§2.7). |
 | POST | `/houses/import` | 202 | Bulk import from CSV/TXT file (`multipart/form-data`) |
 
 > **NOTE:** There is **no** `DELETE /houses/{id}`. Houses are permanent (see §3.2); ownership transfers are performed with `PUT /houses/{id}`. A `DELETE` to this path returns `405 Method Not Allowed`.
 
+**`POST /houses` — request body (rented house with guarantee):**
+```json
+{
+  "rt_id": "<UUID>",
+  "block_code": "E",
+  "house_number": "20",
+  "owner_name": "Budi Santoso",
+  "email": "budi@example.com",
+  "phone": "+6281234567890",
+  "active_date": "2024-01-01",
+  "status": "RENTED",
+  "tenant_name": "Andi Wijaya",
+  "tenant_email": "andi@example.com",
+  "tenant_phone": "+6289876543210",
+  "lease_duration_months": 12,
+  "rental_guarantee_amount_idr": 300000
+}
+```
+
+> **VALIDATION:** Enforce §2.5 and §3.2 check constraints. When `status = RENTED`, `lease_duration_months >= min-duration-months`, and `rental_guarantee_amount_idr` is omitted, apply `default-amount-idr`. When a guarantee obligation is created, assign a new `rental_guarantee_obligation_id` (§2.6). Return HTTP 400 on violation.
+
 **CSV import column order:**
 ```
-rt_code, block_code, house_number, owner_name, email, phone, active_date
+rt_code, block_code, house_number, owner_name, email, phone, active_date, status, tenant_name, tenant_email, tenant_phone, lease_duration_months, rental_guarantee_amount_idr
 ```
+
+> **CSV defaults:** `status` defaults to `OWNED` when omitted. When `status = RENTED`, `tenant_name`, `tenant_email`, and `tenant_phone` are required. `lease_duration_months` and `rental_guarantee_amount_idr` may be omitted; when guarantee applies, `rental_guarantee_amount_idr` defaults to `default-amount-idr`.
 
 ---
 
@@ -363,6 +588,118 @@ block_code, house_number, payment_date, gross_amount, note
 
 ---
 
+### 5.6 Rental Guarantee Receipt Endpoints
+
+| Method | Path | Status | Description |
+|---|---|:---:|---|
+| GET | `/rental-guarantee/payments` | 200 | List guarantee receipts (filterable by `house_id`, `rt_id`, `obligation_id`, date range) |
+| POST | `/rental-guarantee/payments` | 201 | Record guarantee-fee payment; returns receipt |
+| GET | `/rental-guarantee/payments/{id}` | 200 | Get receipt by ID (full printable payload) |
+| PUT | `/rental-guarantee/payments/{id}` | 200 | Update `payment_date` and/or `note` |
+| DELETE | `/rental-guarantee/payments/{id}` | 204 | Void receipt; current obligation becomes UNPAID |
+| POST | `/rental-guarantee/payments/import` | 202 | Bulk import from CSV/TXT *(Administrator only)* |
+
+**`POST /rental-guarantee/payments` — request body:**
+```json
+{
+  "house_id": "<UUID>",
+  "payment_date": "2026-06-09",
+  "amount_idr": 300000,
+  "note": "Transfer BCA"
+}
+```
+
+> **VALIDATION:** Enforce §2.6. Reject with HTTP 400 when: house has no active obligation, `amount_idr` ≠ `rental_guarantee_amount_idr`, or obligation already PAID. `paid_by_name` / `paid_by_email` / `paid_by_phone` are set server-side from current tenant fields.
+
+**`POST /rental-guarantee/payments` — response body (receipt):**
+```json
+{
+  "id": "<UUID>",
+  "receipt_number": "RG-2026-000042",
+  "house_id": "<UUID>",
+  "obligation_id": "<UUID>",
+  "payment_date": "2026-06-09",
+  "amount_idr": 300000,
+  "paid_by_name": "Andi Wijaya",
+  "paid_by_email": "andi@example.com",
+  "paid_by_phone": "+6289876543210",
+  "note": "Transfer BCA",
+  "house": {
+    "block_code": "E",
+    "house_number": "20",
+    "owner_name": "Budi Santoso",
+    "tenant_name": "Andi Wijaya",
+    "status": "RENTED"
+  },
+  "created_by": "<UUID>",
+  "created_at": "2026-06-09T10:30:00Z"
+}
+```
+
+**`GET /houses/{id}` — `rental_guarantee` summary (when guarantee applies):**
+```json
+{
+  "required": true,
+  "amount_idr": 300000,
+  "obligation_id": "<UUID>",
+  "status": "UNPAID",
+  "receipt": null
+}
+```
+
+When paid, `status` is `"PAID"` and `receipt` contains the matching `RentalGuaranteePayment` object (including `receipt_number`). When no guarantee applies (`OWNED` or short lease), omit `rental_guarantee` or set `"required": false`.
+
+**Rental guarantee CSV import column order:**
+```
+block_code, house_number, payment_date, amount_idr, note
+```
+
+---
+
+### 5.7 Rental Guarantee Refund Endpoints
+
+| Method | Path | Status | Description |
+|---|---|:---:|---|
+| GET | `/rental-guarantee/refunds` | 200 | List refunds (filterable by `house_id`, `rt_id`, `status`, date range) |
+| GET | `/rental-guarantee/refunds/{id}` | 200 | Get refund by ID |
+| POST | `/rental-guarantee/refunds/{id}/complete` | 200 | Mark `PENDING` refund as returned; issues `refund_number` |
+| DELETE | `/rental-guarantee/refunds/{id}` | 204 | Cancel a `PENDING` refund only (lease-end was recorded in error) |
+
+> **AUTO-CREATE:** Refunds are created by the system on lease termination (§2.7). There is no manual `POST /refunds` — administrators only **complete** or **cancel** pending items.
+
+**`POST /rental-guarantee/refunds/{id}/complete` — request body:**
+```json
+{
+  "refund_date": "2026-12-01",
+  "note": "Cash returned to tenant"
+}
+```
+
+**`POST /rental-guarantee/refunds/{id}/complete` — response body:**
+```json
+{
+  "id": "<UUID>",
+  "refund_number": "RF-2026-000012",
+  "status": "COMPLETED",
+  "payment_id": "<UUID>",
+  "receipt_number": "RG-2026-000042",
+  "house_id": "<UUID>",
+  "obligation_id": "<UUID>",
+  "amount_idr": 300000,
+  "refunded_to_name": "Andi Wijaya",
+  "refunded_to_email": "andi@example.com",
+  "refunded_to_phone": "+6289876543210",
+  "refund_date": "2026-12-01",
+  "note": "Cash returned to tenant",
+  "completed_by": "<UUID>",
+  "completed_at": "2026-12-01T14:00:00Z"
+}
+```
+
+**`GET /rental-guarantee/payments/{id}`** includes nested `refund` when present (`null` \| `{ status, refund_number, … }`).
+
+---
+
 ## 6. Calculation Engine
 
 ### 6.1 Dues Rate Function
@@ -425,6 +762,8 @@ When `POST /payments` (or an update/delete) is processed, the entire house accou
 5. Store `deposit_balance = remaining` (guaranteed `< getDuesRate(nextPeriod)`).
 6. Persist all `PaymentAllocation` records (allocations are derived — existing rows for the house are replaced on every recompute).
 
+> **SCOPE:** `RentalGuaranteePayment` receipts (§3.7) are **excluded** from this algorithm. Dues `Payment` rows only.
+
 ---
 
 ## 7. Technical Stack
@@ -451,11 +790,11 @@ When `POST /payments` (or an update/delete) is processed, the entire house accou
 | Area | Requirement |
 |---|---|
 | **Correctness** | All monetary calculations must use integer arithmetic in IDR. No floating-point for money. |
-| **Consistency** | Payment creation, update, and deletion must run inside a database transaction that re-computes the full account state atomically. A **pessimistic write-lock on the house row** serializes concurrent mutations of the same house (§6.2). |
+| **Consistency** | Dues payment creation, update, and deletion must run inside a database transaction that re-computes the full account state atomically. A **pessimistic write-lock on the house row** serializes concurrent mutations of the same house (§6.2). Rental-guarantee receipt/refund mutations and lease-terminating house updates acquire the same house-row lock. |
 | **Security** | Passwords stored as Argon2id or bcrypt (cost ≥ 12). JWT expiry configurable via environment variable. |
 | **Audit** | `created_at`, `updated_at`, and `created_by` columns on all mutable tables. |
 | **Testability** | The payment allocation and penalty calculation engines must be pure functions testable without a running database. |
-| **Configuration** | All environment-specific settings (DB, JWT secret, port) via `application.properties` / environment variables. No secrets in source code. |
+| **Configuration** | All environment-specific settings (DB, JWT secret, port, rental-guarantee thresholds — §3.6) via `application.properties` / environment variables. No secrets in source code. |
 | **Error Handling** | Unhandled exceptions return structured RFC 7807 error responses. Validation errors return HTTP 400 with field-level detail. |
 
 ---
@@ -467,8 +806,12 @@ When `POST /payments` (or an update/delete) is processed, the entire house accou
 - **Accepted delimiters:** comma (`,`) or semicolon (`;`)
 - **Header row:** optional — detected automatically.
 - **Encoding:** UTF-8.
-- **Column order:** `rt_code, block_code, house_number, owner_name, email, phone, active_date`
+- **Column order:** `rt_code, block_code, house_number, owner_name, email, phone, active_date, status, tenant_name, tenant_email, tenant_phone, lease_duration_months, rental_guarantee_amount_idr`
 - **`active_date`:** `YYYY-MM-DD` format; if omitted defaults to `2024-01-01`.
+- **`status`:** `OWNED` or `RENTED`; if omitted defaults to `OWNED`.
+- **`tenant_name` / `tenant_email` / `tenant_phone`:** Required when `status = RENTED`; must be empty/omitted when `OWNED`.
+- **`lease_duration_months`:** Positive integer; required when `status = RENTED`.
+- **`rental_guarantee_amount_idr`:** Integer IDR; required when `status = RENTED` and `lease_duration_months >= min-duration-months` (§2.5); defaults to `default-amount-idr` when omitted and guarantee applies.
 - **Duplicate handling:** On duplicate `(rt_code + block_code + house_number)` — update existing record (upsert semantics).
 - **Error handling:** On row-level error: skip row, collect error into import result response — do not abort entire import.
 
@@ -480,6 +823,14 @@ When `POST /payments` (or an update/delete) is processed, the entire house accou
 - Each valid row triggers the full payment allocation engine.
 - **Import result response includes:** `total_rows`, `success_count`, `error_count`, `errors[]`.
 
+### 9.3 Rental Guarantee Payment Import
+
+- **Column order:** `block_code, house_number, payment_date, amount_idr, note`
+- **`amount_idr`:** Integer IDR; must equal the house's current `rental_guarantee_amount_idr` (§2.6).
+- **`payment_date`:** `YYYY-MM-DD`.
+- Each valid row creates a `RentalGuaranteePayment` receipt if the house has an unpaid obligation.
+- **Import result response includes:** `total_rows`, `success_count`, `error_count`, `errors[]`.
+
 ---
 
 ## 10. Glossary
@@ -489,6 +840,12 @@ When `POST /payments` (or an update/delete) is processed, the entire house accou
 | IDR | Indonesian Rupiah |
 | RT | Rukun Tetangga — a neighbourhood sub-unit |
 | KK | Kepala Keluarga — head of household |
+| Rental Guarantee | *Jaminan sewa* — one-time tenant insurance/guarantee fee when lease duration meets threshold (§2.5); not the dues **Deposit** |
+| Rental Guarantee Receipt | Printable proof of guarantee-fee collection; `receipt_number` + `RentalGuaranteePayment` row (§2.6, §3.7) |
+| Rental Guarantee Refund | Return of guarantee fee to tenant on lease end; `refund_number` + `RentalGuaranteeRefund` row (§2.7, §3.8) |
+| Obligation cycle | UUID (`rental_guarantee_obligation_id`) identifying one guarantee collection period per house; resets on lease/tenant/amount change |
+| Tenant | Person **residing** in the house when `status = RENTED`; owner lives elsewhere (§2.5, §3.2) |
+| OWNED / RENTED | Physical occupancy — owner lives in house vs tenant lives in house (§3.2) |
 | RDMS | Resident Dues Management System (this system) |
 | FIFO | First In, First Out — oldest debts paid first |
 | JWT | JSON Web Token |

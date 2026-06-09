@@ -1,0 +1,22 @@
+meta {
+  name: Import Guarantee Payments CSV
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/rental-guarantee/payments/import
+  body: multipart-form
+  auth: inherit
+}
+
+body:multipart-form {
+  file: @file(../fixtures/rental-guarantee-payments-sample.csv) @contentType(text/csv)
+}
+
+docs {
+  POST /api/v1/rental-guarantee/payments/import — Bulk import guarantee receipts. Administrator only. Returns 202.
+
+  Column order: block_code, house_number, payment_date, amount_idr, note
+  amount_idr must equal the house's current rentalGuaranteeAmountIdr.
+}

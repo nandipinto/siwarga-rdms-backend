@@ -18,6 +18,10 @@ import java.util.UUID
 
 enum class UserRole { ADMINISTRATOR, SUPERVISOR }
 
+enum class OccupancyStatus { OWNED, RENTED }
+
+enum class RefundStatus { PENDING, COMPLETED }
+
 @Entity
 @Table(name = "rt")
 class Rt(
@@ -63,6 +67,21 @@ class House(
     var phone: String,
     @Column(name = "active_date", nullable = false)
     var activeDate: LocalDate = LocalDate.of(2024, 1, 1),
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 10)
+    var status: OccupancyStatus = OccupancyStatus.OWNED,
+    @Column(name = "tenant_name", length = 200)
+    var tenantName: String? = null,
+    @Column(name = "tenant_email", length = 255)
+    var tenantEmail: String? = null,
+    @Column(name = "tenant_phone", length = 30)
+    var tenantPhone: String? = null,
+    @Column(name = "lease_duration_months")
+    var leaseDurationMonths: Short? = null,
+    @Column(name = "rental_guarantee_amount_idr")
+    var rentalGuaranteeAmountIdr: Long? = null,
+    @Column(name = "rental_guarantee_obligation_id")
+    var rentalGuaranteeObligationId: UUID? = null,
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false)
@@ -162,3 +181,101 @@ class PaymentAllocation(
     @Column(name = "discount_applied", nullable = false)
     var discountApplied: Long = 0,
 )
+
+@Entity
+@Table(name = "rental_guarantee_payment")
+class RentalGuaranteePayment(
+    @Id
+    var id: UUID = UUID.randomUUID(),
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "house_id", nullable = false)
+    var house: House,
+    @Column(name = "obligation_id", nullable = false, unique = true)
+    var obligationId: UUID,
+    @Column(name = "receipt_number", nullable = false, unique = true, length = 30)
+    var receiptNumber: String,
+    @Column(name = "payment_date", nullable = false)
+    var paymentDate: LocalDate,
+    @Column(name = "amount_idr", nullable = false)
+    var amountIdr: Long,
+    @Column(name = "paid_by_name", nullable = false, length = 200)
+    var paidByName: String,
+    @Column(name = "paid_by_email", nullable = false, length = 255)
+    var paidByEmail: String,
+    @Column(name = "paid_by_phone", nullable = false, length = 30)
+    var paidByPhone: String,
+    @Column(name = "note")
+    var note: String? = null,
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "created_by", nullable = false)
+    var createdBy: AppUser,
+    @Column(name = "created_at", nullable = false)
+    var createdAt: Instant = Instant.now(),
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: Instant = Instant.now(),
+) {
+    @PrePersist fun onCreate() {
+        val now = Instant.now()
+        createdAt = now
+        updatedAt = now
+    }
+
+    @PreUpdate fun onUpdate() {
+        updatedAt = Instant.now()
+    }
+}
+
+@Entity
+@Table(name = "rental_guarantee_refund")
+class RentalGuaranteeRefund(
+    @Id
+    var id: UUID = UUID.randomUUID(),
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "payment_id", nullable = false, unique = true)
+    var payment: RentalGuaranteePayment,
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "house_id", nullable = false)
+    var house: House,
+    @Column(name = "obligation_id", nullable = false)
+    var obligationId: UUID,
+    @Column(name = "refund_number", unique = true, length = 30)
+    var refundNumber: String? = null,
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    var status: RefundStatus,
+    @Column(name = "amount_idr", nullable = false)
+    var amountIdr: Long,
+    @Column(name = "refunded_to_name", nullable = false, length = 200)
+    var refundedToName: String,
+    @Column(name = "refunded_to_email", nullable = false, length = 255)
+    var refundedToEmail: String,
+    @Column(name = "refunded_to_phone", nullable = false, length = 30)
+    var refundedToPhone: String,
+    @Column(name = "refund_date")
+    var refundDate: LocalDate? = null,
+    @Column(name = "note")
+    var note: String? = null,
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "created_by", nullable = false)
+    var createdBy: AppUser,
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "completed_by")
+    var completedBy: AppUser? = null,
+    @Column(name = "created_at", nullable = false)
+    var createdAt: Instant = Instant.now(),
+    @Column(name = "completed_at")
+    var completedAt: Instant? = null,
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: Instant = Instant.now(),
+) {
+    @PrePersist fun onCreate() {
+        val now = Instant.now()
+        createdAt = now
+        updatedAt = now
+    }
+
+    @PreUpdate fun onUpdate() {
+        updatedAt = Instant.now()
+    }
+}
+

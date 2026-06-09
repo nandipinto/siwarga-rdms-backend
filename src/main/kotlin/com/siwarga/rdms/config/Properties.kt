@@ -13,3 +13,11 @@ data class AdminProperties(
     val username: String,
     val password: String,
 )
+
+@ConfigurationProperties(prefix = "rdms.rental-guarantee")
+data class RentalGuaranteeProperties(
+    val minDurationMonths: Int = 6,
+    val defaultAmountIdr: Long = 300_000,
+    val receiptPrefix: String = "RG",
+    val refundPrefix: String = "RF",
+)

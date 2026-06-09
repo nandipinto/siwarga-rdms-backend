@@ -1,0 +1,34 @@
+meta {
+  name: End Lease (RENTED to OWNED)
+  type: http
+  seq: 8
+}
+
+put {
+  url: {{baseUrl}}/api/v1/houses/{{houseId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "rtId": "{{rtId}}",
+    "blockCode": "E",
+    "houseNumber": "20",
+    "ownerName": "Budi Santoso",
+    "email": "budi@example.com",
+    "phone": "081234567890",
+    "activeDate": "2024-01-01",
+    "status": "OWNED"
+  }
+}
+
+docs {
+  PUT /api/v1/houses/{id} — End lease by setting status OWNED.
+  Clears tenant and guarantee fields. Auto-creates PENDING refund if guarantee was paid.
+  Next: run Rental Guarantee > List Pending Refunds, then copy id to guaranteeRefundId.
+}

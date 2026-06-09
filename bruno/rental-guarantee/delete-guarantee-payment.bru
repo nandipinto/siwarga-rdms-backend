@@ -1,0 +1,16 @@
+meta {
+  name: Delete Guarantee Payment
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/rental-guarantee/payments/{{guaranteePaymentId}}
+  body: none
+  auth: inherit
+}
+
+docs {
+  DELETE /api/v1/rental-guarantee/payments/{id} — Void receipt. Rejected if a refund exists. Returns 204.
+  Current obligation returns to UNPAID.
+}

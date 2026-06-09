@@ -1,0 +1,19 @@
+meta {
+  name: List Refunds by House
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/rental-guarantee/refunds
+  body: none
+  auth: inherit
+}
+
+params:query {
+  houseId: {{houseId}}
+}
+
+docs {
+  GET /api/v1/rental-guarantee/refunds?houseId={id} — Refunds for one house (all statuses).
+}

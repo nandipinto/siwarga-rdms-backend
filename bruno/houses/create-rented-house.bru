@@ -1,0 +1,46 @@
+meta {
+  name: Create Rented House
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/houses
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "rtId": "{{rtId}}",
+    "blockCode": "E",
+    "houseNumber": "20",
+    "ownerName": "Budi Santoso",
+    "email": "budi@example.com",
+    "phone": "081234567890",
+    "activeDate": "2024-01-01",
+    "status": "RENTED",
+    "tenantName": "Andi Wijaya",
+    "tenantEmail": "andi@example.com",
+    "tenantPhone": "0819876543210",
+    "leaseDurationMonths": 12,
+    "rentalGuaranteeAmountIdr": 300000
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    const body = res.getBody();
+    bru.setEnvVar("houseId", body.id, { persist: true });
+  }
+}
+
+docs {
+  POST /api/v1/houses — Create a RENTED house with 12-month lease and guarantee obligation.
+  rentalGuaranteeAmountIdr defaults to 300000 when omitted and lease >= 6 months.
+  Saves houseId to environment.
+}

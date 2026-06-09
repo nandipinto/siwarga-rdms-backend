@@ -12,4 +12,5 @@ get {
 
 docs {
   GET /api/v1/houses/{id} — Get house by ID. Administrator only.
+  Includes rentalGuarantee summary (required, amountIdr, obligationId, status UNPAID|PAID, receipt) when guarantee applies.
 }

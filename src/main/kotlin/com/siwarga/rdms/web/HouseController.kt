@@ -4,6 +4,7 @@ import com.siwarga.rdms.service.HouseService
 import com.siwarga.rdms.service.ImportService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
+import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -25,33 +26,33 @@ class HouseController(
     @GetMapping
     fun list(
         @RequestParam(name = "rtId", required = false) rtId: UUID?,
-    ): List<HouseResponse> = service.list(rtId).map { it.toResponse() }
+    ): List<HouseResponse> = service.list(rtId).map { service.buildDetail(it).toResponse() }
 
     @GetMapping("/{id}")
     fun get(
         @PathVariable id: UUID,
-    ): HouseResponse = service.get(id).toResponse()
+    ): HouseResponse = service.buildDetail(service.get(id)).toResponse()
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun create(
         @Valid @RequestBody req: HouseRequest,
-    ): HouseResponse = service.create(req).toResponse()
+    ): HouseResponse = service.buildDetail(service.create(req)).toResponse()
 
     @PutMapping("/{id}")
     fun update(
         @PathVariable id: UUID,
         @Valid @RequestBody req: HouseRequest,
-    ): HouseResponse = service.update(id, req).toResponse()
-
-    // No DELETE: houses are permanent; ownership changes via PUT /houses/{id} (grill Q10).
+        authentication: Authentication,
+    ): HouseResponse = service.buildDetail(service.update(id, req, authentication.name)).toResponse()
 
     @PostMapping("/import")
     @ResponseStatus(HttpStatus.ACCEPTED)
     fun import(
         @RequestParam("file") file: MultipartFile,
+        authentication: Authentication,
     ): ImportResult {
-        val outcome = importService.importHouses(file.inputStream)
+        val outcome = importService.importHouses(file.inputStream, authentication.name)
         return ImportResult(outcome.totalRows, outcome.successCount, outcome.errorCount, outcome.errors)
     }
 }

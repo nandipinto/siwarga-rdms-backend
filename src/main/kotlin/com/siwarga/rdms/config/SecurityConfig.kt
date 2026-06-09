@@ -53,6 +53,12 @@ class SecurityConfig {
                     // Payment CSV import is Administrator-only (spec §4.2).
                     .requestMatchers(HttpMethod.POST, "/api/v1/payments/import")
                     .hasRole(admin)
+                    // Rental guarantee CSV import is Administrator-only (spec §4.2).
+                    .requestMatchers(HttpMethod.POST, "/api/v1/rental-guarantee/payments/import")
+                    .hasRole(admin)
+                    // Rental guarantee receipts/refunds: Administrator + Supervisor.
+                    .requestMatchers("/api/v1/rental-guarantee/**")
+                    .hasAnyRole(admin, supervisor)
                     // Payment CRUD: Administrator + Supervisor.
                     .requestMatchers("/api/v1/payments/**")
                     .hasAnyRole(admin, supervisor)

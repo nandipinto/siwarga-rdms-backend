@@ -1,0 +1,15 @@
+meta {
+  name: List Guarantee Payments
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/rental-guarantee/payments
+  body: none
+  auth: inherit
+}
+
+docs {
+  GET /api/v1/rental-guarantee/payments — List all guarantee receipts. Administrator and Supervisor.
+}

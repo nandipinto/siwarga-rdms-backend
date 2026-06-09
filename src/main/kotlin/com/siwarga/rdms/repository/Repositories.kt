@@ -4,6 +4,9 @@ import com.siwarga.rdms.domain.AppUser
 import com.siwarga.rdms.domain.House
 import com.siwarga.rdms.domain.Payment
 import com.siwarga.rdms.domain.PaymentAllocation
+import com.siwarga.rdms.domain.RefundStatus
+import com.siwarga.rdms.domain.RentalGuaranteePayment
+import com.siwarga.rdms.domain.RentalGuaranteeRefund
 import com.siwarga.rdms.domain.Rt
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
@@ -81,3 +84,52 @@ interface PaymentAllocationRepository : JpaRepository<PaymentAllocation, UUID> {
 
     fun deleteByPaymentId(paymentId: UUID)
 }
+
+interface RentalGuaranteePaymentRepository : JpaRepository<RentalGuaranteePayment, UUID> {
+    fun findByObligationId(obligationId: UUID): RentalGuaranteePayment?
+
+    fun existsByObligationId(obligationId: UUID): Boolean
+
+    @Query(
+        """
+        SELECT p FROM RentalGuaranteePayment p
+        WHERE (:houseId IS NULL OR p.house.id = :houseId)
+          AND (:rtId IS NULL OR p.house.rt.id = :rtId)
+          AND (:from IS NULL OR p.paymentDate >= :from)
+          AND (:to IS NULL OR p.paymentDate <= :to)
+        ORDER BY p.paymentDate DESC, p.createdAt DESC
+        """,
+    )
+    fun search(
+        @Param("houseId") houseId: UUID?,
+        @Param("rtId") rtId: UUID?,
+        @Param("from") from: LocalDate?,
+        @Param("to") to: LocalDate?,
+    ): List<RentalGuaranteePayment>
+}
+
+interface RentalGuaranteeRefundRepository : JpaRepository<RentalGuaranteeRefund, UUID> {
+    fun findByPaymentId(paymentId: UUID): RentalGuaranteeRefund?
+
+    fun existsByPaymentId(paymentId: UUID): Boolean
+
+    @Query(
+        """
+        SELECT r FROM RentalGuaranteeRefund r
+        WHERE (:houseId IS NULL OR r.house.id = :houseId)
+          AND (:rtId IS NULL OR r.house.rt.id = :rtId)
+          AND (:status IS NULL OR r.status = :status)
+          AND (:from IS NULL OR r.createdAt >= :fromInstant)
+          AND (:to IS NULL OR r.createdAt <= :toInstant)
+        ORDER BY r.createdAt DESC
+        """,
+    )
+    fun search(
+        @Param("houseId") houseId: UUID?,
+        @Param("rtId") rtId: UUID?,
+        @Param("status") status: RefundStatus?,
+        @Param("fromInstant") fromInstant: java.time.Instant?,
+        @Param("toInstant") toInstant: java.time.Instant?,
+    ): List<RentalGuaranteeRefund>
+}
+

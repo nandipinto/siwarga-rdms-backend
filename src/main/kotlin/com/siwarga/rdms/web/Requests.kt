@@ -1,5 +1,6 @@
 package com.siwarga.rdms.web
 
+import com.siwarga.rdms.domain.OccupancyStatus
 import com.siwarga.rdms.domain.UserRole
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
@@ -32,6 +33,29 @@ data class HouseRequest(
     @field:Email @field:NotBlank val email: String,
     @field:NotBlank val phone: String,
     val activeDate: LocalDate? = null,
+    val status: OccupancyStatus? = null,
+    val tenantName: String? = null,
+    val tenantEmail: String? = null,
+    val tenantPhone: String? = null,
+    val leaseDurationMonths: Short? = null,
+    val rentalGuaranteeAmountIdr: Long? = null,
+)
+
+data class RentalGuaranteePaymentRequest(
+    @field:NotNull val houseId: UUID,
+    @field:NotNull val paymentDate: LocalDate,
+    @field:Positive val amountIdr: Long,
+    val note: String? = null,
+)
+
+data class RentalGuaranteePaymentUpdateRequest(
+    @field:NotNull val paymentDate: LocalDate,
+    val note: String? = null,
+)
+
+data class RentalGuaranteeRefundCompleteRequest(
+    @field:NotNull val refundDate: LocalDate,
+    val note: String? = null,
 )
 
 data class PaymentRequest(

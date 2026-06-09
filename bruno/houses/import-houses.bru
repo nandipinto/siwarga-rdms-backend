@@ -11,13 +11,15 @@ post {
 }
 
 body:multipart-form {
-  file: @file(fixtures/houses-sample.csv) @contentType(text/csv)
+  file: @file(../fixtures/houses-sample.csv) @contentType(text/csv)
 }
 
 docs {
   POST /api/v1/houses/import — Bulk import from CSV/TXT. Administrator only. Returns 202.
-  
-  Column order: rt_code, block_code, house_number, owner_name, email, phone, active_date
+
+  Column order: rt_code, block_code, house_number, owner_name, email, phone, active_date,
+  status, tenant_name, tenant_email, tenant_phone, lease_duration_months, rental_guarantee_amount_idr
   Delimiter: comma or semicolon (auto-detected). UTF-8. Optional header row.
-  Existing houses (same RT + block + number) are upserted.
+  status defaults to OWNED. rental_guarantee_amount_idr defaults to 300000 when guarantee applies.
+  Existing houses (same RT + block + number) are upserted. Lease termination auto-creates pending refunds.
 }

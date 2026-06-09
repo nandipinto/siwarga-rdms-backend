@@ -1,0 +1,15 @@
+meta {
+  name: Cancel Refund
+  type: http
+  seq: 13
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/rental-guarantee/refunds/{{guaranteeRefundId}}
+  body: none
+  auth: inherit
+}
+
+docs {
+  DELETE /api/v1/rental-guarantee/refunds/{id} — Cancel a PENDING refund only (lease-end recorded in error). Returns 204.
+}

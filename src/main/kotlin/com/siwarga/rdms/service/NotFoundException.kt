@@ -9,3 +9,8 @@ class NotFoundException(
 class ConflictException(
     message: String,
 ) : RuntimeException(message)
+
+/** Thrown for invalid requests / business-rule violations (mapped to HTTP 400). */
+class BadRequestException(
+    message: String,
+) : RuntimeException(message)

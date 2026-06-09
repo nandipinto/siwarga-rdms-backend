@@ -1,0 +1,29 @@
+meta {
+  name: List Pending Refunds
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/v1/rental-guarantee/refunds
+  body: none
+  auth: inherit
+}
+
+params:query {
+  status: PENDING
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    if (Array.isArray(body) && body.length > 0) {
+      bru.setEnvVar("guaranteeRefundId", body[0].id, { persist: true });
+    }
+  }
+}
+
+docs {
+  GET /api/v1/rental-guarantee/refunds?status=PENDING — Outstanding refunds awaiting cash return.
+  Saves first guaranteeRefundId to environment when found.
+}

@@ -1,0 +1,15 @@
+meta {
+  name: List Refunds
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/v1/rental-guarantee/refunds
+  body: none
+  auth: inherit
+}
+
+docs {
+  GET /api/v1/rental-guarantee/refunds — List all guarantee refunds. Administrator and Supervisor.
+}

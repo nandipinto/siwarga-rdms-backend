@@ -1,0 +1,38 @@
+meta {
+  name: Register New Tenant
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{baseUrl}}/api/v1/houses/{{houseId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "rtId": "{{rtId}}",
+    "blockCode": "E",
+    "houseNumber": "20",
+    "ownerName": "Budi Santoso",
+    "email": "budi@example.com",
+    "phone": "081234567890",
+    "activeDate": "2024-01-01",
+    "status": "RENTED",
+    "tenantName": "Cici Tenant",
+    "tenantEmail": "cici@example.com",
+    "tenantPhone": "083333333333",
+    "leaseDurationMonths": 12
+  }
+}
+
+docs {
+  PUT /api/v1/houses/{id} — Register a new tenant on a previously OWNED house.
+  rentalGuaranteeAmountIdr omitted — defaults to 300000 when lease >= 6 months.
+  Not blocked by pending refunds from a previous lease.
+}

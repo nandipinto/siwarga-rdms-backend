@@ -1,0 +1,15 @@
+meta {
+  name: Get Guarantee Payment
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/rental-guarantee/payments/{{guaranteePaymentId}}
+  body: none
+  auth: inherit
+}
+
+docs {
+  GET /api/v1/rental-guarantee/payments/{id} — Full receipt payload including nested refund when present.
+}

@@ -27,6 +27,8 @@ body:json {
 }
 
 docs {
-  PUT /api/v1/houses/{id} — Update house or transfer ownership. Administrator only.
-  The dues ledger (activeDate, payments, arrears) is preserved across owner changes.
+  PUT /api/v1/houses/{id} — Update house, transfer ownership, or change occupancy/lease. Administrator only.
+  The dues ledger (activeDate, payments, arrears) is preserved across owner/tenant changes.
+  Lease termination (RENTED→OWNED or tenant/lease change) auto-creates a PENDING guarantee refund when a receipt exists.
+  Omitted status/tenant fields preserve existing occupancy on update.
 }

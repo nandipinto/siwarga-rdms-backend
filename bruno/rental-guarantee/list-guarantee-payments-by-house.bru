@@ -1,0 +1,19 @@
+meta {
+  name: List Guarantee Payments by House
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/rental-guarantee/payments
+  body: none
+  auth: inherit
+}
+
+params:query {
+  houseId: {{houseId}}
+}
+
+docs {
+  GET /api/v1/rental-guarantee/payments?houseId={id} — Guarantee receipts for one house.
+}
