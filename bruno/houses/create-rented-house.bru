@@ -18,10 +18,10 @@ body:json {
   {
     "rtId": "{{rtId}}",
     "blockCode": "E",
-    "houseNumber": "20",
-    "ownerName": "Budi Santoso",
-    "email": "budi@example.com",
-    "phone": "081234567890",
+    "houseNumber": "19",
+    "ownerName": "Jati Promono",
+    "email": "jp@example.com",
+    "phone": "08991234567",
     "activeDate": "2024-01-01",
     "status": "RENTED",
     "tenantName": "Andi Wijaya",
@@ -30,6 +30,10 @@ body:json {
     "leaseDurationMonths": 12,
     "rentalGuaranteeAmountIdr": 300000
   }
+}
+
+vars:pre-request {
+  rtId: 381d0324-5e34-4b51-8e47-193ad3a87225
 }
 
 script:post-response {
