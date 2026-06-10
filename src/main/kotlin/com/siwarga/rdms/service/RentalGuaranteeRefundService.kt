@@ -4,6 +4,9 @@ import com.siwarga.rdms.domain.AppUser
 import com.siwarga.rdms.domain.RefundStatus
 import com.siwarga.rdms.domain.RentalGuaranteePayment
 import com.siwarga.rdms.domain.RentalGuaranteeRefund
+import com.siwarga.rdms.errors.BadRequestException
+import com.siwarga.rdms.errors.ConflictException
+import com.siwarga.rdms.errors.NotFoundException
 import com.siwarga.rdms.repository.RentalGuaranteeRefundRepository
 import com.siwarga.rdms.service.rental.DocumentNumberService
 import org.springframework.stereotype.Service
@@ -89,15 +92,16 @@ class RentalGuaranteeRefundService(
                 ?.atStartOfDay(java.time.ZoneOffset.UTC)
                 ?.toInstant()
                 ?.minusNanos(1)
-        return refundRepository.search(
-            houseId,
-            rtId,
-            status,
-            filterFrom = fromInstant != null,
-            fromInstant = fromInstant ?: java.time.Instant.EPOCH,
-            filterTo = toInstant != null,
-            toInstant = toInstant ?: java.time.Instant.parse("9999-12-31T23:59:59Z"),
-        ).map { toView(it) }
+        return refundRepository
+            .search(
+                houseId,
+                rtId,
+                status,
+                filterFrom = fromInstant != null,
+                fromInstant = fromInstant ?: java.time.Instant.EPOCH,
+                filterTo = toInstant != null,
+                toInstant = toInstant ?: java.time.Instant.parse("9999-12-31T23:59:59Z"),
+            ).map { toView(it) }
     }
 
     @Transactional(readOnly = true)

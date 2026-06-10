@@ -1,7 +1,7 @@
 package com.siwarga.rdms.web
 
-import com.siwarga.rdms.service.ArrearsReport
-import com.siwarga.rdms.service.MonthlyDuesReport
+import com.siwarga.rdms.domain.ArrearsReport
+import com.siwarga.rdms.domain.MonthlyDuesReport
 import com.siwarga.rdms.service.ReportService
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable

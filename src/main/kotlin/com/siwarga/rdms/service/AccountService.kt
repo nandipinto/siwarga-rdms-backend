@@ -4,9 +4,12 @@ import com.siwarga.rdms.calc.AllocationEngine
 import com.siwarga.rdms.calc.AllocationType
 import com.siwarga.rdms.calc.PaymentInput
 import com.siwarga.rdms.calc.ReplayResult
+import com.siwarga.rdms.domain.AllocationView
 import com.siwarga.rdms.domain.House
 import com.siwarga.rdms.domain.Payment
 import com.siwarga.rdms.domain.PaymentAllocation
+import com.siwarga.rdms.domain.PaymentView
+import com.siwarga.rdms.errors.NotFoundException
 import com.siwarga.rdms.repository.HouseRepository
 import com.siwarga.rdms.repository.PaymentAllocationRepository
 import com.siwarga.rdms.repository.PaymentRepository

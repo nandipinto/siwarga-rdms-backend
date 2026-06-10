@@ -1,8 +1,8 @@
 package com.siwarga.rdms.web
 
+import com.siwarga.rdms.domain.PaymentView
 import com.siwarga.rdms.service.ImportService
 import com.siwarga.rdms.service.PaymentService
-import com.siwarga.rdms.service.PaymentView
 import jakarta.validation.Valid
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest

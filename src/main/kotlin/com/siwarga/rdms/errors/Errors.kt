@@ -1,4 +1,4 @@
-package com.siwarga.rdms.service
+package com.siwarga.rdms.errors
 
 /** Thrown when a referenced resource does not exist (mapped to HTTP 404 in the web layer). */
 class NotFoundException(

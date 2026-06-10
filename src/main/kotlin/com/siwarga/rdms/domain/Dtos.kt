@@ -1,4 +1,4 @@
-package com.siwarga.rdms.service
+package com.siwarga.rdms.domain
 
 import com.siwarga.rdms.calc.AllocationType
 import java.util.UUID

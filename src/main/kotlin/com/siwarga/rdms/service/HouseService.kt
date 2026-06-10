@@ -3,12 +3,14 @@ package com.siwarga.rdms.service
 import com.siwarga.rdms.config.RentalGuaranteeProperties
 import com.siwarga.rdms.domain.House
 import com.siwarga.rdms.domain.OccupancyStatus
+import com.siwarga.rdms.errors.NotFoundException
 import com.siwarga.rdms.repository.AppUserRepository
 import com.siwarga.rdms.repository.HouseRepository
 import com.siwarga.rdms.repository.RentalGuaranteePaymentRepository
 import com.siwarga.rdms.repository.RentalGuaranteeRefundRepository
 import com.siwarga.rdms.repository.RtRepository
 import com.siwarga.rdms.service.rental.HouseOccupancyInput
+import com.siwarga.rdms.service.rental.HouseOccupancyState
 import com.siwarga.rdms.service.rental.RentalGuaranteeRules
 import com.siwarga.rdms.web.HouseRequest
 import org.springframework.stereotype.Service
@@ -125,9 +127,9 @@ class HouseService(
     }
 
     private fun resolveOccupancy(
-        old: com.siwarga.rdms.service.rental.HouseOccupancyState?,
+        old: HouseOccupancyState?,
         input: HouseOccupancyInput,
-    ): com.siwarga.rdms.service.rental.HouseOccupancyState {
+    ): HouseOccupancyState {
         val normalized = RentalGuaranteeRules.normalize(input, rentalGuaranteeProperties)
         val withObligation =
             RentalGuaranteeRules.applyObligationId(
@@ -141,7 +143,7 @@ class HouseService(
 
     private fun applyOccupancy(
         house: House,
-        state: com.siwarga.rdms.service.rental.HouseOccupancyState,
+        state: HouseOccupancyState,
     ) {
         house.status = state.status
         house.tenantName = state.tenantName

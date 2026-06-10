@@ -2,7 +2,7 @@ package com.siwarga.rdms.service.rental
 
 import com.siwarga.rdms.config.RentalGuaranteeProperties
 import com.siwarga.rdms.domain.OccupancyStatus
-import com.siwarga.rdms.service.BadRequestException
+import com.siwarga.rdms.errors.BadRequestException
 import java.util.UUID
 
 /** Normalized occupancy fields ready to apply to a House entity. */
@@ -53,16 +53,20 @@ object RentalGuaranteeRules {
             )
         }
 
-        val lease = input.leaseDurationMonths
-            ?: throw BadRequestException("lease_duration_months is required when status is RENTED")
+        val lease =
+            input.leaseDurationMonths
+                ?: throw BadRequestException("lease_duration_months is required when status is RENTED")
         if (lease <= 0) throw BadRequestException("lease_duration_months must be positive")
 
-        val tenantName = input.tenantName?.trim()?.takeIf { it.isNotEmpty() }
-            ?: throw BadRequestException("tenant_name is required when status is RENTED")
-        val tenantEmail = input.tenantEmail?.trim()?.takeIf { it.isNotEmpty() }
-            ?: throw BadRequestException("tenant_email is required when status is RENTED")
-        val tenantPhone = input.tenantPhone?.trim()?.takeIf { it.isNotEmpty() }
-            ?: throw BadRequestException("tenant_phone is required when status is RENTED")
+        val tenantName =
+            input.tenantName?.trim()?.takeIf { it.isNotEmpty() }
+                ?: throw BadRequestException("tenant_name is required when status is RENTED")
+        val tenantEmail =
+            input.tenantEmail?.trim()?.takeIf { it.isNotEmpty() }
+                ?: throw BadRequestException("tenant_email is required when status is RENTED")
+        val tenantPhone =
+            input.tenantPhone?.trim()?.takeIf { it.isNotEmpty() }
+                ?: throw BadRequestException("tenant_phone is required when status is RENTED")
 
         val guaranteeRequired = guaranteeApplies(OccupancyStatus.RENTED, lease, config)
         val amount =
@@ -99,6 +103,7 @@ object RentalGuaranteeRules {
                     throw BadRequestException("OWNED houses must not have tenant or guarantee fields")
                 }
             }
+
             OccupancyStatus.RENTED -> {
                 if (state.tenantName == null || state.tenantEmail == null || state.tenantPhone == null ||
                     state.leaseDurationMonths == null

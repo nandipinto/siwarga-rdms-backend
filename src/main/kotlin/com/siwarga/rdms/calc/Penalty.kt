@@ -12,7 +12,7 @@ enum class PenaltyTrigger(
 
 /** A single assessed penalty, attributed to the period after which it was triggered. */
 data class PenaltyItem(
-    val trigger: com.siwarga.rdms.calc.PenaltyTrigger,
+    val trigger: PenaltyTrigger,
     val assessedAfterPeriod: YearMonth,
     val amount: Long,
 )
@@ -39,7 +39,7 @@ object PenaltyCalculator {
         activeDate: YearMonth,
         refMonth: YearMonth,
         activityMonths: Set<YearMonth>,
-    ): com.siwarga.rdms.calc.PenaltyResult {
+    ): PenaltyResult {
         if (refMonth < activeDate) {
             return PenaltyResult(0, emptyList())
         }

@@ -2,7 +2,7 @@ package com.siwarga.rdms.service.rental
 
 import com.siwarga.rdms.config.RentalGuaranteeProperties
 import com.siwarga.rdms.domain.OccupancyStatus
-import com.siwarga.rdms.service.BadRequestException
+import com.siwarga.rdms.errors.BadRequestException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull

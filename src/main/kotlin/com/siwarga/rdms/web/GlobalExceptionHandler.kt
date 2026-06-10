@@ -1,9 +1,9 @@
 package com.siwarga.rdms.web
 
 import com.siwarga.rdms.calc.PaymentRejectedException
-import com.siwarga.rdms.service.BadRequestException
-import com.siwarga.rdms.service.ConflictException
-import com.siwarga.rdms.service.NotFoundException
+import com.siwarga.rdms.errors.BadRequestException
+import com.siwarga.rdms.errors.ConflictException
+import com.siwarga.rdms.errors.NotFoundException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
 import org.springframework.security.access.AccessDeniedException

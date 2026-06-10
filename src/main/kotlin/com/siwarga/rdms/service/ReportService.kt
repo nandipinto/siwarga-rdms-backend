@@ -3,7 +3,12 @@ package com.siwarga.rdms.service
 import com.siwarga.rdms.calc.AllocationType
 import com.siwarga.rdms.calc.DuesRate
 import com.siwarga.rdms.calc.PenaltyTrigger
+import com.siwarga.rdms.domain.ArrearsReport
 import com.siwarga.rdms.domain.House
+import com.siwarga.rdms.domain.MonthlyDuesReport
+import com.siwarga.rdms.domain.MonthlyDuesRow
+import com.siwarga.rdms.domain.PenaltyView
+import com.siwarga.rdms.domain.UnpaidPeriodView
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.YearMonth

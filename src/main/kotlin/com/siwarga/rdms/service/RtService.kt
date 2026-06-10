@@ -1,6 +1,8 @@
 package com.siwarga.rdms.service
 
 import com.siwarga.rdms.domain.Rt
+import com.siwarga.rdms.errors.ConflictException
+import com.siwarga.rdms.errors.NotFoundException
 import com.siwarga.rdms.repository.HouseRepository
 import com.siwarga.rdms.repository.RtRepository
 import com.siwarga.rdms.repository.RwRepository
