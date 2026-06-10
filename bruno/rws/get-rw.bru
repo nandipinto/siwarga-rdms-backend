@@ -1,0 +1,15 @@
+meta {
+  name: Get RW
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/rws/{{rwId}}
+  body: none
+  auth: inherit
+}
+
+docs {
+  GET /api/v1/rws/{id} — Get RW by ID. Administrator only.
+}

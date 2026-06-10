@@ -81,20 +81,49 @@ class RdmsIntegrationTest {
         activeDate = activeDate,
     )
 
+    private fun createRw(
+        token: String,
+        rwCode: String,
+        description: String? = null,
+    ): String {
+        val body = mutableMapOf<String, Any>("rwCode" to rwCode)
+        if (description != null) body["description"] = description
+        val res =
+            rest.exchange(
+                "/api/v1/rws",
+                HttpMethod.POST,
+                HttpEntity(body, headers(token)),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.CREATED, res.statusCode)
+        return res.body!!["id"] as String
+    }
+
+    private fun createRt(
+        token: String,
+        rwId: String,
+        rtCode: String,
+        description: String? = null,
+    ): String {
+        val body = mutableMapOf<String, Any>("rwId" to rwId, "rtCode" to rtCode)
+        if (description != null) body["description"] = description
+        val res =
+            rest.exchange(
+                "/api/v1/rts",
+                HttpMethod.POST,
+                HttpEntity(body, headers(token)),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.CREATED, res.statusCode)
+        return res.body!!["id"] as String
+    }
+
     @Test
     fun `full payment lifecycle and role enforcement`() {
         val adminToken = login("admin", "admin123")
 
-        // Create RT
-        val rtRes =
-            rest.exchange(
-                "/api/v1/rts",
-                HttpMethod.POST,
-                HttpEntity(mapOf("rtCode" to "RT 01", "description" to "Test RT"), headers(adminToken)),
-                Map::class.java,
-            )
-        assertEquals(HttpStatus.CREATED, rtRes.statusCode)
-        val rtId = rtRes.body!!["id"] as String
+        val rwId = createRw(adminToken, "RW 01")
+        val rtId = createRt(adminToken, rwId, "RT 01", "Test RT")
 
         // Create House active 2026-02 (current rate)
         val houseRes =
@@ -193,22 +222,9 @@ class RdmsIntegrationTest {
     @Test
     fun `list houses filters by rtId`() {
         val adminToken = login("admin", "admin123")
-        val rt1 =
-            rest
-                .exchange(
-                    "/api/v1/rts",
-                    HttpMethod.POST,
-                    HttpEntity(mapOf("rtCode" to "RT A"), headers(adminToken)),
-                    Map::class.java,
-                ).body!!["id"] as String
-        val rt2 =
-            rest
-                .exchange(
-                    "/api/v1/rts",
-                    HttpMethod.POST,
-                    HttpEntity(mapOf("rtCode" to "RT B"), headers(adminToken)),
-                    Map::class.java,
-                ).body!!["id"] as String
+        val rwId = createRw(adminToken, "RW A")
+        val rt1 = createRt(adminToken, rwId, "RT A")
+        val rt2 = createRt(adminToken, rwId, "RT B")
 
         fun createHouse(
             rtId: String,
@@ -274,18 +290,14 @@ class RdmsIntegrationTest {
     @Test
     fun `house csv import upserts and reports row errors`() {
         val adminToken = login("admin", "admin123")
-        rest.exchange(
-            "/api/v1/rts",
-            HttpMethod.POST,
-            HttpEntity(mapOf("rtCode" to "RT 02"), headers(adminToken)),
-            Map::class.java,
-        )
+        val rwId = createRw(adminToken, "RW 02")
+        createRt(adminToken, rwId, "RT 02")
 
         val csv =
             """
-            rt_code;block_code;house_number;owner_name;email;phone;active_date
-            RT 02;A;1;Siti;siti@example.com;0812;2024-01-01
-            RT 99;B;2;Ghost;ghost@example.com;0813;2024-01-01
+            rt_code;block_code;house_number;owner_name;email;phone;active_date;status;tenant_name;tenant_email;tenant_phone;lease_duration_months;rental_guarantee_amount_idr
+            RT 02;A;1;Siti;siti@example.com;0812;2024-01-01;;;;;;
+            RT 99;B;2;Ghost;ghost@example.com;0813;2024-01-01;;;;;;
             """.trimIndent()
 
         val mpHeaders = HttpHeaders()
@@ -316,16 +328,8 @@ class RdmsIntegrationTest {
     @Test
     fun `ownership change preserves the ledger and houses cannot be deleted`() {
         val adminToken = login("admin", "admin123")
-        val rtId =
-            (
-                rest
-                    .exchange(
-                        "/api/v1/rts",
-                        HttpMethod.POST,
-                        HttpEntity(mapOf("rtCode" to "RT 03"), headers(adminToken)),
-                        Map::class.java,
-                    ).body!!["id"]
-            ) as String
+        val rwId = createRw(adminToken, "RW 03")
+        val rtId = createRt(adminToken, rwId, "RT 03")
         val houseId =
             (
                 rest
@@ -395,14 +399,8 @@ class RdmsIntegrationTest {
     @Test
     fun `rental guarantee collect lease end refund and new tenant while pending`() {
         val adminToken = login("admin", "admin123")
-        val rtId =
-            rest
-                .exchange(
-                    "/api/v1/rts",
-                    HttpMethod.POST,
-                    HttpEntity(mapOf("rtCode" to "RT RG"), headers(adminToken)),
-                    Map::class.java,
-                ).body!!["id"] as String
+        val rwId = createRw(adminToken, "RW RG")
+        val rtId = createRt(adminToken, rwId, "RT RG")
 
         val rentedHouse =
             mapOf(

@@ -86,12 +86,12 @@ class RentalGuaranteeController(
         @RequestParam(name = "status", required = false) status: RefundStatus?,
         @RequestParam(name = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) from: LocalDate?,
         @RequestParam(name = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) to: LocalDate?,
-    ): List<RentalGuaranteeRefundResponse> = refundService.list(houseId, rtId, status, from, to).map { refundService.toView(it).toResponse() }
+    ): List<RentalGuaranteeRefundResponse> = refundService.list(houseId, rtId, status, from, to).map { it.toResponse() }
 
     @GetMapping("/refunds/{id}")
     fun getRefund(
         @PathVariable id: UUID,
-    ): RentalGuaranteeRefundResponse = refundService.toView(refundService.get(id)).toResponse()
+    ): RentalGuaranteeRefundResponse = refundService.getView(id).toResponse()
 
     @PostMapping("/refunds/{id}/complete")
     fun completeRefund(
@@ -102,7 +102,7 @@ class RentalGuaranteeController(
         val user =
             appUserRepository.findByUsername(authentication.name)
                 ?: throw NotFoundException("User ${authentication.name} not found")
-        return refundService.complete(id, req.refundDate, req.note, user).let { refundService.toView(it).toResponse() }
+        return refundService.getView(refundService.complete(id, req.refundDate, req.note, user).id).toResponse()
     }
 
     @DeleteMapping("/refunds/{id}")

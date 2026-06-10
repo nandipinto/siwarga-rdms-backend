@@ -5,17 +5,13 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/v1/houses
+  url: {{baseUrl}}/api/v1/houses?rtId={{rtId}}
   body: none
   auth: inherit
 }
 
 params:query {
   rtId: {{rtId}}
-}
-
-vars:pre-request {
-  rtId: 33536c7a-f5ce-42ec-afae-76eb9582060f
 }
 
 docs {

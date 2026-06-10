@@ -51,12 +51,14 @@ class RentalGuaranteeRefundService(
         if (refund.status != RefundStatus.PENDING) {
             throw BadRequestException("Only PENDING refunds can be completed")
         }
-        refund.status = RefundStatus.COMPLETED
+        val refundNumber = documentNumberService.nextRefundNumber(refundDate)
+        val completedAt = Instant.now()
+        refund.refundNumber = refundNumber
         refund.refundDate = refundDate
-        refund.refundNumber = documentNumberService.nextRefundNumber(refundDate)
         refund.note = note
         refund.completedBy = completedBy
-        refund.completedAt = Instant.now()
+        refund.completedAt = completedAt
+        refund.status = RefundStatus.COMPLETED
         return refundRepository.save(refund)
     }
 
@@ -79,7 +81,7 @@ class RentalGuaranteeRefundService(
         status: RefundStatus?,
         from: LocalDate?,
         to: LocalDate?,
-    ): List<RentalGuaranteeRefund> {
+    ): List<RentalGuaranteeRefundView> {
         val fromInstant = from?.atStartOfDay(java.time.ZoneOffset.UTC)?.toInstant()
         val toInstant =
             to
@@ -87,8 +89,20 @@ class RentalGuaranteeRefundService(
                 ?.atStartOfDay(java.time.ZoneOffset.UTC)
                 ?.toInstant()
                 ?.minusNanos(1)
-        return refundRepository.search(houseId, rtId, status, fromInstant, toInstant)
+        return refundRepository.search(
+            houseId,
+            rtId,
+            status,
+            filterFrom = fromInstant != null,
+            fromInstant = fromInstant ?: java.time.Instant.EPOCH,
+            filterTo = toInstant != null,
+            toInstant = toInstant ?: java.time.Instant.parse("9999-12-31T23:59:59Z"),
+        ).map { toView(it) }
     }
+
+    @Transactional(readOnly = true)
+    fun getView(id: UUID): RentalGuaranteeRefundView =
+        toView(refundRepository.findById(id).orElseThrow { NotFoundException("Refund $id not found") })
 
     fun toView(refund: RentalGuaranteeRefund): RentalGuaranteeRefundView =
         RentalGuaranteeRefundView(

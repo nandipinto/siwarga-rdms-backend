@@ -3,19 +3,30 @@ package com.siwarga.rdms.web
 import com.siwarga.rdms.domain.AppUser
 import com.siwarga.rdms.domain.House
 import com.siwarga.rdms.domain.Rt
+import com.siwarga.rdms.domain.Rw
 import com.siwarga.rdms.service.HouseDetail
 import com.siwarga.rdms.service.RentalGuaranteePaymentView
 import com.siwarga.rdms.service.RentalGuaranteeRefundView
 import com.siwarga.rdms.service.RentalGuaranteeSummary
 import java.util.UUID
 
+data class RwResponse(
+    val id: UUID,
+    val rwCode: String,
+    val description: String?,
+)
+
+fun Rw.toResponse() = RwResponse(id, rwCode, description)
+
 data class RtResponse(
     val id: UUID,
+    val rwId: UUID,
+    val rwCode: String,
     val rtCode: String,
     val description: String?,
 )
 
-fun Rt.toResponse() = RtResponse(id, rtCode, description)
+fun Rt.toResponse() = RtResponse(id, rw.id, rw.rwCode, rtCode, description)
 
 data class RentalGuaranteeSummaryResponse(
     val required: Boolean,

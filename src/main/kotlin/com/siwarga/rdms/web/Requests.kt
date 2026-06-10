@@ -20,7 +20,13 @@ data class LoginResponse(
     val username: String,
 )
 
+data class RwRequest(
+    @field:NotBlank val rwCode: String,
+    val description: String? = null,
+)
+
 data class RtRequest(
+    @field:NotNull val rwId: UUID,
     @field:NotBlank val rtCode: String,
     val description: String? = null,
 )
@@ -33,7 +39,7 @@ data class HouseRequest(
     @field:Email @field:NotBlank val email: String,
     @field:NotBlank val phone: String,
     val activeDate: LocalDate? = null,
-    val status: OccupancyStatus? = null,
+    val status: OccupancyStatus? = OccupancyStatus.OWNED,
     val tenantName: String? = null,
     val tenantEmail: String? = null,
     val tenantPhone: String? = null,

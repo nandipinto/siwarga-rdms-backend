@@ -1,0 +1,15 @@
+meta {
+  name: List RWs
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/rws
+  body: none
+  auth: inherit
+}
+
+docs {
+  GET /api/v1/rws — List all RWs. Administrator only.
+}

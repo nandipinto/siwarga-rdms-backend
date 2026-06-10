@@ -22,8 +22,13 @@ body:json {
     "ownerName": "Budi Santoso",
     "email": "budi@example.com",
     "phone": "081234567890",
-    "activeDate": "2024-01-01"
+    "activeDate": "2024-01-01",
+    "status": "OWNED"
   }
+}
+
+vars:pre-request {
+  rtId: 381d0324-5e34-4b51-8e47-193ad3a87225
 }
 
 script:post-response {
@@ -35,5 +40,5 @@ script:post-response {
 
 docs {
   POST /api/v1/houses — Create a new house. Administrator only. Saves houseId to environment.
-  activeDate defaults to 2024-01-01 if omitted.
+  activeDate defaults to 2024-01-01 if omitted. status defaults to OWNED if omitted.
 }

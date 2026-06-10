@@ -23,10 +23,38 @@ enum class OccupancyStatus { OWNED, RENTED }
 enum class RefundStatus { PENDING, COMPLETED }
 
 @Entity
+@Table(name = "rw")
+class Rw(
+    @Id
+    var id: UUID = UUID.randomUUID(),
+    @Column(name = "rw_code", nullable = false, unique = true, length = 10)
+    var rwCode: String,
+    @Column(name = "description")
+    var description: String? = null,
+    @Column(name = "created_at", nullable = false)
+    var createdAt: Instant = Instant.now(),
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: Instant = Instant.now(),
+) {
+    @PrePersist fun onCreate() {
+        val now = Instant.now()
+        createdAt = now
+        updatedAt = now
+    }
+
+    @PreUpdate fun onUpdate() {
+        updatedAt = Instant.now()
+    }
+}
+
+@Entity
 @Table(name = "rt")
 class Rt(
     @Id
     var id: UUID = UUID.randomUUID(),
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "rw_id", nullable = false)
+    var rw: Rw,
     @Column(name = "rt_code", nullable = false, unique = true, length = 10)
     var rtCode: String,
     @Column(name = "description")

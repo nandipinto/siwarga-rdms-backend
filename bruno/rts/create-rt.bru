@@ -16,6 +16,7 @@ headers {
 
 body:json {
   {
+    "rwId": "{{rwId}}",
     "rtCode": "RT_03",
     "description": "RT 03"
   }
@@ -29,5 +30,5 @@ script:post-response {
 }
 
 docs {
-  POST /api/v1/rts — Create a new RT. Administrator only. Saves rtId to environment.
+  POST /api/v1/rts — Create a new RT under an RW. Administrator only. Requires rwId. Saves rtId to environment.
 }

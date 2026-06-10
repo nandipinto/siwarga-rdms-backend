@@ -26,7 +26,8 @@ docs {
 
   Endpoints:
   - Auth: POST /auth/login
-  - RTs: GET/POST /rts, GET/PUT/DELETE /rts/{id}
+  - RWs: GET/POST /rws, GET/PUT/DELETE /rws/{id}
+  - RTs: GET/POST /rts, GET/PUT/DELETE /rts/{id} (rwId required on create/update; optional rwId filter on list)
   - Houses: GET/POST /houses, GET/PUT /houses/{id}, POST /houses/import (no DELETE)
   - Users: GET/POST /users, GET/PUT/DELETE /users/{id}
   - Payments: GET/POST /payments, GET/PUT/DELETE /payments/{id}, POST /payments/import

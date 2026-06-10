@@ -22,7 +22,8 @@ body:json {
     "ownerName": "New Owner",
     "email": "newowner@example.com",
     "phone": "081987654321",
-    "activeDate": "2024-01-01"
+    "activeDate": "2024-01-01",
+    "status": "OWNED"
   }
 }
 
@@ -30,5 +31,6 @@ docs {
   PUT /api/v1/houses/{id} — Update house, transfer ownership, or change occupancy/lease. Administrator only.
   The dues ledger (activeDate, payments, arrears) is preserved across owner/tenant changes.
   Lease termination (RENTED→OWNED or tenant/lease change) auto-creates a PENDING guarantee refund when a receipt exists.
-  Omitted status/tenant fields preserve existing occupancy on update.
+  status defaults to OWNED when omitted — pass status RENTED with tenant/lease fields to keep or set a rental.
+  Omitted tenant fields preserve existing tenant data when status is RENTED.
 }

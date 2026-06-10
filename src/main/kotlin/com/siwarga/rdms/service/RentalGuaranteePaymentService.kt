@@ -105,6 +105,7 @@ class RentalGuaranteePaymentService(
             toView(payment, refundRepository.findByPaymentId(payment.id)?.let { refundService.toView(it) })
         }
 
+    @Transactional(readOnly = true)
     fun buildSummary(house: House): RentalGuaranteeSummary? {
         val obligationId = house.rentalGuaranteeObligationId ?: return null
         val amount = house.rentalGuaranteeAmountIdr ?: return null

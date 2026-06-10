@@ -1,0 +1,26 @@
+meta {
+  name: Update RW
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/v1/rws/{{rwId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "rwCode": "RW_01",
+    "description": "RW 01 updated"
+  }
+}
+
+docs {
+  PUT /api/v1/rws/{id} — Update RW. Administrator only.
+}

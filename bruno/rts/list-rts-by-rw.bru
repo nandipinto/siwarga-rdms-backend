@@ -1,0 +1,15 @@
+meta {
+  name: List RTs by RW
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/v1/rts?rwId={{rwId}}
+  body: none
+  auth: inherit
+}
+
+docs {
+  GET /api/v1/rts?rwId={id} — List RTs for one RW. Administrator only.
+}

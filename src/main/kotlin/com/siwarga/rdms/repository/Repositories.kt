@@ -8,6 +8,7 @@ import com.siwarga.rdms.domain.RefundStatus
 import com.siwarga.rdms.domain.RentalGuaranteePayment
 import com.siwarga.rdms.domain.RentalGuaranteeRefund
 import com.siwarga.rdms.domain.Rt
+import com.siwarga.rdms.domain.Rw
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
@@ -16,17 +17,31 @@ import org.springframework.data.repository.query.Param
 import java.time.LocalDate
 import java.util.UUID
 
+interface RwRepository : JpaRepository<Rw, UUID> {
+    fun findByRwCode(rwCode: String): Rw?
+
+    fun existsByRwCode(rwCode: String): Boolean
+}
+
 interface RtRepository : JpaRepository<Rt, UUID> {
     fun findByRtCode(rtCode: String): Rt?
 
     fun existsByRtCode(rtCode: String): Boolean
+
+    fun existsByRwId(rwId: UUID): Boolean
+
+    fun findAllByRwIdOrderByRtCodeAsc(rwId: UUID): List<Rt>
 }
 
 interface HouseRepository : JpaRepository<House, UUID> {
-    @Query("SELECT h FROM House h WHERE h.rt.id = :rtId")
+    @Query(
+        "SELECT h FROM House h WHERE h.rt.id = :rtId ORDER BY h.rt.rtCode ASC, h.blockCode ASC, h.houseNumber ASC",
+    )
     fun findAllByRtId(
         @Param("rtId") rtId: UUID,
     ): List<House>
+
+    fun findAllByOrderByRtRtCodeAsc(): List<House>
 
     fun findByRtRtCodeAndBlockCodeAndHouseNumber(
         rtCode: String,
@@ -119,8 +134,8 @@ interface RentalGuaranteeRefundRepository : JpaRepository<RentalGuaranteeRefund,
         WHERE (:houseId IS NULL OR r.house.id = :houseId)
           AND (:rtId IS NULL OR r.house.rt.id = :rtId)
           AND (:status IS NULL OR r.status = :status)
-          AND (:from IS NULL OR r.createdAt >= :fromInstant)
-          AND (:to IS NULL OR r.createdAt <= :toInstant)
+          AND (:filterFrom = FALSE OR r.createdAt >= :fromInstant)
+          AND (:filterTo = FALSE OR r.createdAt <= :toInstant)
         ORDER BY r.createdAt DESC
         """,
     )
@@ -128,8 +143,10 @@ interface RentalGuaranteeRefundRepository : JpaRepository<RentalGuaranteeRefund,
         @Param("houseId") houseId: UUID?,
         @Param("rtId") rtId: UUID?,
         @Param("status") status: RefundStatus?,
-        @Param("fromInstant") fromInstant: java.time.Instant?,
-        @Param("toInstant") toInstant: java.time.Instant?,
+        @Param("filterFrom") filterFrom: Boolean,
+        @Param("fromInstant") fromInstant: java.time.Instant,
+        @Param("filterTo") filterTo: Boolean,
+        @Param("toInstant") toInstant: java.time.Instant,
     ): List<RentalGuaranteeRefund>
 }
 

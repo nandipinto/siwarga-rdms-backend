@@ -31,7 +31,7 @@ class HouseService(
         if (rtId != null) {
             houseRepository.findAllByRtId(rtId)
         } else {
-            houseRepository.findAll()
+            houseRepository.findAllByOrderByRtRtCodeAsc()
         }
 
     fun get(id: UUID): House = houseRepository.findById(id).orElseThrow { NotFoundException("House $id not found") }
@@ -91,56 +91,35 @@ class HouseService(
     }
 
     @Transactional
-    fun upsertFromImport(
-        rtCode: String,
-        blockCode: String,
-        houseNumber: String,
-        ownerName: String,
-        email: String,
-        phone: String,
-        activeDate: LocalDate,
-        occupancyInput: HouseOccupancyInput,
-        actorUsername: String,
-    ): House {
+    fun upsertFromImport(input: HouseImportInput): House {
         val rt =
-            rtRepository.findByRtCode(rtCode)
-                ?: throw IllegalArgumentException("Unknown RT code '$rtCode'")
-        val existing = houseRepository.findByRtRtCodeAndBlockCodeAndHouseNumber(rtCode, blockCode, houseNumber)
+            rtRepository.findByRtCode(input.rtCode)
+                ?: throw IllegalArgumentException("Unknown RT code '${input.rtCode}'")
+        val existing =
+            houseRepository.findByRtRtCodeAndBlockCodeAndHouseNumber(
+                input.rtCode,
+                input.blockCode,
+                input.houseNumber,
+            )
+        val req =
+            HouseRequest(
+                rtId = rt.id,
+                blockCode = input.blockCode,
+                houseNumber = input.houseNumber,
+                ownerName = input.ownerName,
+                email = input.email,
+                phone = input.phone,
+                activeDate = input.activeDate,
+                status = input.occupancyInput.status,
+                tenantName = input.occupancyInput.tenantName,
+                tenantEmail = input.occupancyInput.tenantEmail,
+                tenantPhone = input.occupancyInput.tenantPhone,
+                leaseDurationMonths = input.occupancyInput.leaseDurationMonths,
+                rentalGuaranteeAmountIdr = input.occupancyInput.rentalGuaranteeAmountIdr,
+            )
         return if (existing != null) {
-            val req =
-                HouseRequest(
-                    rtId = rt.id,
-                    blockCode = blockCode,
-                    houseNumber = houseNumber,
-                    ownerName = ownerName,
-                    email = email,
-                    phone = phone,
-                    activeDate = activeDate,
-                    status = occupancyInput.status,
-                    tenantName = occupancyInput.tenantName,
-                    tenantEmail = occupancyInput.tenantEmail,
-                    tenantPhone = occupancyInput.tenantPhone,
-                    leaseDurationMonths = occupancyInput.leaseDurationMonths,
-                    rentalGuaranteeAmountIdr = occupancyInput.rentalGuaranteeAmountIdr,
-                )
-            update(existing.id, req, actorUsername)
+            update(existing.id, req, input.actorUsername)
         } else {
-            val req =
-                HouseRequest(
-                    rtId = rt.id,
-                    blockCode = blockCode,
-                    houseNumber = houseNumber,
-                    ownerName = ownerName,
-                    email = email,
-                    phone = phone,
-                    activeDate = activeDate,
-                    status = occupancyInput.status,
-                    tenantName = occupancyInput.tenantName,
-                    tenantEmail = occupancyInput.tenantEmail,
-                    tenantPhone = occupancyInput.tenantPhone,
-                    leaseDurationMonths = occupancyInput.leaseDurationMonths,
-                    rentalGuaranteeAmountIdr = occupancyInput.rentalGuaranteeAmountIdr,
-                )
             create(req)
         }
     }
@@ -190,6 +169,18 @@ class HouseService(
 data class HouseDetail(
     val house: House,
     val rentalGuarantee: RentalGuaranteeSummary?,
+)
+
+data class HouseImportInput(
+    val rtCode: String,
+    val blockCode: String,
+    val houseNumber: String,
+    val ownerName: String,
+    val email: String,
+    val phone: String,
+    val activeDate: LocalDate,
+    val occupancyInput: HouseOccupancyInput,
+    val actorUsername: String,
 )
 
 fun HouseRequest.toOccupancyInput(existing: House?) =

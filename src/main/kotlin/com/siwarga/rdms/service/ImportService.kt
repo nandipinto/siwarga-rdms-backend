@@ -4,10 +4,8 @@ import com.opencsv.CSVParserBuilder
 import com.opencsv.CSVReaderBuilder
 import com.siwarga.rdms.domain.OccupancyStatus
 import com.siwarga.rdms.repository.HouseRepository
-import com.siwarga.rdms.repository.RtRepository
 import com.siwarga.rdms.service.rental.HouseOccupancyInput
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
@@ -26,13 +24,11 @@ data class ImportOutcome(
  */
 @Service
 class ImportService(
-    private val rtRepository: RtRepository,
     private val houseRepository: HouseRepository,
     private val houseService: HouseService,
     private val paymentService: PaymentService,
     private val guaranteePaymentService: RentalGuaranteePaymentService,
 ) {
-    @Transactional
     fun importHouses(
         input: InputStream,
         actorUsername: String,
@@ -40,9 +36,13 @@ class ImportService(
         val rows = parse(input, expectedCols = 13, headerFirstField = "rt_code")
         var ok = 0
         val errors = mutableListOf<String>()
-        rows.forEachIndexed { idx, cols ->
-            val line = idx + 1
+        rows.forEach { parsed ->
+            if (parsed.columnCountError != null) {
+                errors += parsed.columnCountError
+                return@forEach
+            }
             try {
+                val cols = parsed.cols
                 val rtCode = cols[0].trim()
                 val blockCode = cols[1].trim()
                 val houseNumber = cols[2].trim()
@@ -66,31 +66,43 @@ class ImportService(
                 val tenantName = cols.getOrNull(8)?.trim()?.takeIf { it.isNotEmpty() }
                 val tenantEmail = cols.getOrNull(9)?.trim()?.takeIf { it.isNotEmpty() }
                 val tenantPhone = cols.getOrNull(10)?.trim()?.takeIf { it.isNotEmpty() }
-                val leaseDurationMonths = cols.getOrNull(11)?.trim()?.takeIf { it.isNotEmpty() }?.toShort()
-                val rentalGuaranteeAmountIdr = cols.getOrNull(12)?.trim()?.takeIf { it.isNotEmpty() }?.toLong()
+                val leaseDurationMonths =
+                    cols
+                        .getOrNull(11)
+                        ?.trim()
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.toShort()
+                val rentalGuaranteeAmountIdr =
+                    cols
+                        .getOrNull(12)
+                        ?.trim()
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.toLong()
 
                 houseService.upsertFromImport(
-                    rtCode = rtCode,
-                    blockCode = blockCode,
-                    houseNumber = houseNumber,
-                    ownerName = ownerName,
-                    email = email,
-                    phone = phone,
-                    activeDate = activeDate,
-                    occupancyInput =
-                        HouseOccupancyInput(
-                            status = status,
-                            tenantName = tenantName,
-                            tenantEmail = tenantEmail,
-                            tenantPhone = tenantPhone,
-                            leaseDurationMonths = leaseDurationMonths,
-                            rentalGuaranteeAmountIdr = rentalGuaranteeAmountIdr,
-                        ),
-                    actorUsername = actorUsername,
+                    HouseImportInput(
+                        rtCode = rtCode,
+                        blockCode = blockCode,
+                        houseNumber = houseNumber,
+                        ownerName = ownerName,
+                        email = email,
+                        phone = phone,
+                        activeDate = activeDate,
+                        occupancyInput =
+                            HouseOccupancyInput(
+                                status = status,
+                                tenantName = tenantName,
+                                tenantEmail = tenantEmail,
+                                tenantPhone = tenantPhone,
+                                leaseDurationMonths = leaseDurationMonths,
+                                rentalGuaranteeAmountIdr = rentalGuaranteeAmountIdr,
+                            ),
+                        actorUsername = actorUsername,
+                    ),
                 )
                 ok++
             } catch (e: Exception) {
-                errors += "Row $line: ${e.message}"
+                errors += "Row ${parsed.line}: ${e.message}"
             }
         }
         return ImportOutcome(rows.size, ok, errors.size, errors)
@@ -103,9 +115,13 @@ class ImportService(
         val rows = parse(input, expectedCols = 5, headerFirstField = "block_code")
         var ok = 0
         val errors = mutableListOf<String>()
-        rows.forEachIndexed { idx, cols ->
-            val line = idx + 1
+        rows.forEach { parsed ->
+            if (parsed.columnCountError != null) {
+                errors += parsed.columnCountError
+                return@forEach
+            }
             try {
+                val cols = parsed.cols
                 val blockCode = cols[0].trim()
                 val houseNumber = cols[1].trim()
                 val paymentDate = LocalDate.parse(cols[2].trim())
@@ -122,7 +138,7 @@ class ImportService(
                 paymentService.create(house.id, paymentDate, grossAmount, note, username)
                 ok++
             } catch (e: Exception) {
-                errors += "Row $line: ${e.message}"
+                errors += "Row ${parsed.line}: ${e.message}"
             }
         }
         return ImportOutcome(rows.size, ok, errors.size, errors)
@@ -135,9 +151,13 @@ class ImportService(
         val rows = parse(input, expectedCols = 5, headerFirstField = "block_code")
         var ok = 0
         val errors = mutableListOf<String>()
-        rows.forEachIndexed { idx, cols ->
-            val line = idx + 1
+        rows.forEach { parsed ->
+            if (parsed.columnCountError != null) {
+                errors += parsed.columnCountError
+                return@forEach
+            }
             try {
+                val cols = parsed.cols
                 val blockCode = cols[0].trim()
                 val houseNumber = cols[1].trim()
                 val paymentDate = LocalDate.parse(cols[2].trim())
@@ -154,18 +174,24 @@ class ImportService(
                 guaranteePaymentService.create(house.id, paymentDate, amountIdr, note, username)
                 ok++
             } catch (e: Exception) {
-                errors += "Row $line: ${e.message}"
+                errors += "Row ${parsed.line}: ${e.message}"
             }
         }
         return ImportOutcome(rows.size, ok, errors.size, errors)
     }
+
+    private data class ParsedCsvRow(
+        val line: Int,
+        val cols: Array<String>,
+        val columnCountError: String? = null,
+    )
 
     /** Reads all data rows, auto-detecting delimiter and an optional header. */
     private fun parse(
         input: InputStream,
         expectedCols: Int,
         headerFirstField: String,
-    ): List<Array<String>> {
+    ): List<ParsedCsvRow> {
         val bytes = input.readBytes()
         val text = String(bytes, StandardCharsets.UTF_8)
         val delimiter = if (text.lineSequence().firstOrNull()?.contains(';') == true) ';' else ','
@@ -179,7 +205,20 @@ class ImportService(
                 if (all.isEmpty()) return emptyList()
                 val first = all.first()
                 val hasHeader = first.firstOrNull()?.trim()?.equals(headerFirstField, ignoreCase = true) == true
-                return (if (hasHeader) all.drop(1) else all)
+                val headerOffset = if (hasHeader) 1 else 0
+                val dataRows = if (hasHeader) all.drop(1) else all
+                return dataRows.mapIndexed { idx, row ->
+                    val line = idx + 1 + headerOffset
+                    if (row.size < expectedCols) {
+                        ParsedCsvRow(
+                            line = line,
+                            cols = row,
+                            columnCountError = "Row $line: expected $expectedCols columns but found ${row.size}",
+                        )
+                    } else {
+                        ParsedCsvRow(line = line, cols = row)
+                    }
+                }
             }
     }
 }
