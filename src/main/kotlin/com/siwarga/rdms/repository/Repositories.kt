@@ -92,6 +92,19 @@ interface PaymentRepository : JpaRepository<Payment, UUID> {
         @Param("to") to: LocalDate?,
         pageable: org.springframework.data.domain.Pageable,
     ): org.springframework.data.domain.Page<Payment>
+
+    @Query("SELECT COALESCE(SUM(p.grossAmount), 0) FROM Payment p")
+    fun sumGrossAmount(): Long
+
+    @Query(
+        """
+        SELECT p FROM Payment p
+        JOIN FETCH p.house h
+        JOIN FETCH h.rt
+        ORDER BY p.createdAt DESC, p.id DESC
+        """,
+    )
+    fun findRecent(pageable: org.springframework.data.domain.Pageable): List<Payment>
 }
 
 interface PaymentAllocationRepository : JpaRepository<PaymentAllocation, UUID> {
@@ -148,5 +161,7 @@ interface RentalGuaranteeRefundRepository : JpaRepository<RentalGuaranteeRefund,
         @Param("filterTo") filterTo: Boolean,
         @Param("toInstant") toInstant: java.time.Instant,
     ): List<RentalGuaranteeRefund>
+
+    fun countByStatus(status: RefundStatus): Long
 }
 

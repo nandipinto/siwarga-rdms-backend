@@ -1,5 +1,6 @@
 package com.siwarga.rdms.domain
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.siwarga.rdms.calc.AllocationType
 import java.util.UUID
 
@@ -65,4 +66,67 @@ data class MonthlyDuesReport(
     val totalExpectedIdr: Long,
     val totalCollectedIdr: Long,
     val totalDiscountIdr: Long,
+)
+
+data class DashboardAlerts(
+    val pendingRefunds: Long,
+    val unpaidGuarantees: Int,
+)
+
+data class DashboardCurrentMonth(
+    val year: Int,
+    val month: Int,
+    val expectedIdr: Long,
+    val collectedIdr: Long,
+    val percent: Int,
+)
+
+data class DashboardHouseStats(
+    val total: Int,
+    val paidUp: Int,
+    val inArrears: Int,
+)
+
+data class DashboardMonthlyTrendPoint(
+    val year: Int,
+    val month: Int,
+    val collectedIdr: Long,
+)
+
+data class DashboardPeriod(
+    val year: Int,
+    val month: Int,
+)
+
+data class DashboardRecentPayment(
+    val paymentId: UUID,
+    val houseId: UUID,
+    val ownerName: String,
+    val rtCode: String,
+    val grossAmountIdr: Long,
+    val createdAt: String,
+    val primaryPeriod: DashboardPeriod?,
+    val housePaidUp: Boolean,
+)
+
+data class DashboardTopArrearsEntry(
+    val rank: Int,
+    val houseId: UUID,
+    val ownerName: String,
+    val rtCode: String,
+    val totalOutstandingIdr: Long,
+    val phone: String,
+    val email: String,
+)
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class DashboardResponse(
+    val role: String,
+    val alerts: DashboardAlerts,
+    val totalCollectedIdr: Long? = null,
+    val currentMonth: DashboardCurrentMonth? = null,
+    val houseStats: DashboardHouseStats? = null,
+    val monthlyTrend: List<DashboardMonthlyTrendPoint>? = null,
+    val recentPayments: List<DashboardRecentPayment>? = null,
+    val topArrears: List<DashboardTopArrearsEntry>? = null,
 )

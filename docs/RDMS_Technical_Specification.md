@@ -1,9 +1,9 @@
 # Resident Dues Management System — Technical Specification
 
-> **Document Status:** Draft v1.4
+> **Document Status:** Draft v1.5
 > **Prepared for:** AI Coding Agents / Backend Developers
 > **Effective Date:** 2026-05-31
-> **Last Updated:** 2026-06-10
+> **Last Updated:** 2026-06-15
 > **System Start Date:** 1 January 2024
 
 ---
@@ -17,6 +17,7 @@
 | v1.2 | 2026-06-09 | Added **Rental Guarantee** domain concept (§1.1), occupancy `status` on House (§3.2), rental-guarantee business rules with configurable duration threshold and default amount (§2.5, §3.6), tenant contact fields (`tenant_name`, `tenant_email`, `tenant_phone`) on House when `status = RENTED`, exclusive physical occupancy (`OWNED` = owner resides; `RENTED` = tenant resides, owner elsewhere), and House API/CSV field updates (§5.3, §9.1). |
 | v1.3 | 2026-06-10 | Added rental-guarantee **payment tracking and receipts** — `RentalGuaranteePayment` entity (§3.7), obligation-cycle model via `rental_guarantee_obligation_id` on House (§3.2), collection rules (§2.6), CRUD API + receipt response (§5.6), access matrix update (§4.2), optional CSV import (§9.3). |
 | v1.4 | 2026-06-10 | Added rental-guarantee **refund on lease end** — `RentalGuaranteeRefund` entity (§3.8), refund rules (§2.7), tenant contact snapshots on payment, auto `PENDING` refund on lease termination, refund completion API (§5.7). Clarified pending refunds do **not** block new-tenant registration (§2.7). |
+| v1.5 | 2026-06-15 | Added **Dashboard** aggregated endpoint (§5.5) — role-aware summary for Administrator (KPIs, calendar-year income trend, recent payments, top arrears, operational alerts) and Supervisor (alerts only). Access matrix updated (§4.2). |
 
 ---
 
@@ -435,6 +436,7 @@ Records return of a guarantee fee when a lease ends. One refund per receipt.
 | Rental Guarantee CSV Import | ✅ | ❌ |
 | Arrears & Penalty Report | ✅ | ✅ |
 | Monthly Dues Report | ✅ | ✅ |
+| Dashboard Summary | ✅ (full) | ✅ (alerts only) |
 
 ---
 
@@ -535,7 +537,95 @@ block_code, house_number, payment_date, gross_amount, note
 
 ---
 
-### 5.5 Reporting Endpoints
+### 5.5 Dashboard Endpoint
+
+| Method | Path | Status | Description |
+|---|---|:---:|---|
+| GET | `/dashboard` | 200 | Role-aware dashboard summary (cluster-wide; RT scope deferred to v2) |
+
+**Access:** Administrator receives the full payload; Supervisor receives `role` and `alerts` only.
+
+**Computation rules (Administrator payload):**
+
+| Field | Rule |
+|---|---|
+| `totalCollectedIdr` | `SUM(payment.gross_amount)` — all-time gross cash received |
+| `currentMonth.percent` | `round(collectedIdr × 100 / expectedIdr)`; `0` when `expectedIdr = 0` |
+| `currentMonth.expectedIdr` / `collectedIdr` | Cluster totals for the reference calendar month (same aggregation as `/reports/dues/monthly`, current-month row) |
+| `houseStats.paidUp` | Houses where `arrearsTotal = 0` **and** `penaltyTotal = 0` at reference month |
+| `houseStats.inArrears` | Houses where `arrearsTotal + penaltyTotal > 0` |
+| `monthlyTrend` | Twelve entries for the current calendar year (Jan–Dec), zero-filled; `collectedIdr` = cluster dues cash allocated per month |
+| `recentPayments` | Five most recent payments by `created_at DESC`; `primaryPeriod` = latest `DUES` allocation period on that payment; `housePaidUp` = account fully caught up (`arrearsTotal = 0` and `penaltyTotal = 0`) immediately after that payment in replay order |
+| `topArrears` | Up to 10 houses with `totalOutstandingIdr = totalArrearsIdr + totalPenaltiesIdr > 0`, descending; ties broken by `ownerName` ascending |
+| `alerts.pendingRefunds` | Count of refunds with `status = PENDING` |
+| `alerts.unpaidGuarantees` | Count of houses where current guarantee obligation status is `UNPAID` |
+
+**`GET /dashboard` — Administrator response shape:**
+```json
+{
+  "role": "ADMINISTRATOR",
+  "totalCollectedIdr": 12450000,
+  "currentMonth": {
+    "year": 2026,
+    "month": 6,
+    "expectedIdr": 18000000,
+    "collectedIdr": 15300000,
+    "percent": 85
+  },
+  "houseStats": {
+    "total": 150,
+    "paidUp": 120,
+    "inArrears": 30
+  },
+  "monthlyTrend": [
+    { "year": 2026, "month": 1, "collectedIdr": 0 }
+  ],
+  "recentPayments": [
+    {
+      "paymentId": "<UUID>",
+      "houseId": "<UUID>",
+      "ownerName": "Ahmad Dhani",
+      "rtCode": "RT 02",
+      "grossAmountIdr": 120000,
+      "createdAt": "2026-06-15T10:05:00Z",
+      "primaryPeriod": { "year": 2026, "month": 5 },
+      "housePaidUp": true
+    }
+  ],
+  "topArrears": [
+    {
+      "rank": 1,
+      "houseId": "<UUID>",
+      "ownerName": "Warga A",
+      "rtCode": "RT 01",
+      "totalOutstandingIdr": 1500000,
+      "phone": "08123456789",
+      "email": "warga@example.com"
+    }
+  ],
+  "alerts": {
+    "pendingRefunds": 2,
+    "unpaidGuarantees": 5
+  }
+}
+```
+
+**`GET /dashboard` — Supervisor response shape:**
+```json
+{
+  "role": "SUPERVISOR",
+  "alerts": {
+    "pendingRefunds": 2,
+    "unpaidGuarantees": 5
+  }
+}
+```
+
+> **NOTE:** JSON property names follow Jackson's default camelCase serialisation of Kotlin data classes. Administrator-only fields are omitted (not `null`) in the Supervisor response. Existing report endpoints (`/reports/**`) remain available for drill-down pages (Laporan Iuran, house-level arrears detail).
+
+---
+
+### 5.6 Reporting Endpoints
 
 | Method | Path | Status | Description |
 |---|---|:---:|---|
@@ -588,7 +678,7 @@ block_code, house_number, payment_date, gross_amount, note
 
 ---
 
-### 5.6 Rental Guarantee Receipt Endpoints
+### 5.7 Rental Guarantee Receipt Endpoints
 
 | Method | Path | Status | Description |
 |---|---|:---:|---|
@@ -656,7 +746,7 @@ block_code, house_number, payment_date, amount_idr, note
 
 ---
 
-### 5.7 Rental Guarantee Refund Endpoints
+### 5.8 Rental Guarantee Refund Endpoints
 
 | Method | Path | Status | Description |
 |---|---|:---:|---|

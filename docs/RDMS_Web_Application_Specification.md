@@ -1,10 +1,10 @@
 # Resident Dues Management System — Web Application Specification
 
-> **Document Status:** Draft v1.1
+> **Document Status:** Draft v1.2
 > **Prepared for:** AI Coding Agents / Frontend Developers
 > **Effective Date:** 2026-06-13
-> **Last Updated:** 2026-06-13
-> **Companion Document:** [RDMS Technical Specification](./RDMS_Technical_Specification.md) (backend v1.4)
+> **Last Updated:** 2026-06-15
+> **Companion Document:** [RDMS Technical Specification](./RDMS_Technical_Specification.md) (backend v1.5)
 > **Repository:** Separate frontend repo (`siwarga-rdms-frontend` — proposed name)
 
 ---
@@ -15,6 +15,7 @@
 |---|---|---|
 | v1.0 | 2026-06-13 | Initial web application specification. Design decisions resolved via structured review: staff-only v1 (resident portal deferred), React + TypeScript + Vite, Indonesian UI, responsive balanced layout, full backend parity, sessionStorage JWT + idle timeout, separate-repo static deployment, print CSS for guarantee documents, prepayment calculator (advisory), role-based dashboard, house detail hub with tabs. |
 | v1.1 | 2026-06-13 | Added §15.5 Single VPS Deployment — architecture, minimum/recommended hardware, Nginx reverse proxy, Docker Compose, security, backups. |
+| v1.2 | 2026-06-15 | Redesigned §9.1 Dashboard — Administrator executive overview (KPI cards, calendar-year trend chart, recent activity, top-10 arrears) plus operational alert row; single `GET /dashboard` data source; Supervisor minimal alerts-only dashboard. Updated §12 endpoint map and query keys. |
 
 ---
 
@@ -48,7 +49,7 @@ This document defines the complete functional and technical requirements for the
 ### 1.1 In Scope (v1)
 
 - Internal web UI for **Administrator** and **Supervisor** roles only.
-- Full functional parity with backend capabilities defined in the companion specification (v1.4), plus **RW management** exposed by the implemented backend (`/api/v1/rws`).
+- Full functional parity with backend capabilities defined in the companion specification (v1.5), plus **RW management** exposed by the implemented backend (`/api/v1/rws`).
 - Indonesian-language UI with `id-ID` formatting.
 - Responsive layout optimised for both office desktop use and mobile field use (payment recording).
 
@@ -343,24 +344,65 @@ Use these in advisory calculators and form hints only.
 
 ### 9.1 Dashboard — `/`
 
-Role-specific landing page after login.
+Role-specific landing page after login. Both roles call **`GET /dashboard`** once on load.
 
-#### 9.1.1 Administrator Widgets
+#### 9.1.1 Layout — Administrator
 
-| Widget | Data source | Action |
+**Header**
+
+| Element | Source | Action |
 |---|---|---|
-| Iuran bulan berjalan | `GET /reports/dues/monthly` (current month) | Link → Laporan Iuran |
-| Refund menunggu | `GET /rental-guarantee/refunds?status=PENDING` (count) | Link → Refund list filtered |
-| Jaminan belum lunas | Derive from house list or guarantee list where status UNPAID | Link → Jaminan Sewa filtered |
+| Title | Static | "Dashboard Pengurus" |
+| Subtitle | Static | "Ringkasan kas dan status iuran warga bulan ini" |
+| Primary button | — | **Input Pembayaran Baru** → `/payments/new` |
+
+**KPI row (4 cards)**
+
+| Card | API field | Display | Subtext |
+|---|---|---|---|
+| Total Iuran Masuk | `totalCollectedIdr` | `Rp …` (all-time gross payments) | — |
+| Iuran Bulan Ini | `currentMonth.percent` | `{percent}%` progress bar | Target from `currentMonth.expectedIdr` |
+| Warga Lunas | `houseStats.paidUp` / `houseStats.total` | `{paidUp} / {total} KK` | "Sisa {inArrears} KK masih punya tunggakan" |
+| Perlu Perhatian | `houseStats.inArrears` | `{inArrears} KK` | Link → `/reports/arrears` or scroll to top-10 table |
+
+**Middle row**
+
+| Panel | API field | Notes |
+|---|---|---|
+| Grafik Batang Tren Pemasukan | `monthlyTrend[]` | Bar chart, current calendar year Jan–Dec; Y-axis in millions; tooltip shows `collectedIdr` |
+| Aktivitas Terbaru | `recentPayments[]` (max 5) | Avatar placeholder; `{ownerName}` · `{rtCode}` · format `Iuran Bulan {monthName} ({Lunas\|Sebagian})` from `primaryPeriod` + `housePaidUp`; relative time from `createdAt` |
+
+**Bottom row**
+
+| Panel | API field | Notes |
+|---|---|---|
+| Tabel 10 Tunggakan Terbanyak | `topArrears[]` | Columns: Ranking · Warga · RT · Total Tunggakan (`totalOutstandingIdr`) · Aksi **Hubungi** (`tel:`/`mailto:` from `phone`/`email`) |
+
+**Alert row (from spec v1.0 — secondary below main dashboard)**
+
+| Widget | API field | Action |
+|---|---|---|
+| Refund menunggu | `alerts.pendingRefunds` | Link → `/rental-guarantee/refunds?status=PENDING` |
+| Jaminan belum lunas | `alerts.unpaidGuarantees` | Link → `/rental-guarantee` filtered UNPAID |
 | Shortcut cards | — | Tambah Rumah, Catat Pembayaran, Impor CSV |
 
-#### 9.1.2 Supervisor Widgets
+#### 9.1.2 Layout — Supervisor
 
-| Widget | Data source | Action |
+Minimal dashboard per operational focus:
+
+| Widget | API field | Action |
 |---|---|---|
-| Refund menunggu | `GET /rental-guarantee/refunds?status=PENDING` | Link → Refund list |
-| Jaminan belum lunas | Guarantee payments / house summaries | Link → Jaminan Sewa |
+| Refund menunggu | `alerts.pendingRefunds` | Link → Refund list |
+| Jaminan belum lunas | `alerts.unpaidGuarantees` | Link → Jaminan Sewa |
 | **Primary CTA** | — | Large button **Catat Pembayaran Iuran** → `/payments/new` |
+
+Supervisor response omits KPI cards, trend chart, recent activity, and top-arrears table (`GET /dashboard` returns `role` + `alerts` only).
+
+#### 9.1.3 Formatting notes
+
+- **Lunas vs Sebagian:** `housePaidUp === true` → "(Lunas)"; otherwise "(Sebagian)".
+- **Month names:** Indonesian locale (`Mei`, `Jun`, …) from `primaryPeriod.month`.
+- **Empty states:** Zero houses → all counts `0`, empty arrays; chart shows flat zeros.
 
 ---
 
@@ -759,6 +801,7 @@ Print via `@media print` dedicated routes or hidden print components triggered b
 | Guarantee | CRUD + import | `/rental-guarantee/payments`, `…/{id}`, `…/import` |
 | Refunds | List, get, complete, cancel | `/rental-guarantee/refunds`, `…/{id}`, `…/{id}/complete` |
 | Reports | GET | `/reports/dues/monthly`, `/reports/arrears/{houseId}` |
+| Dashboard | GET | `/dashboard` |
 | Users | CRUD | `/users`, `/users/{id}` |
 
 Full request/response schemas: OpenAPI at `{API_BASE}/../swagger-ui.html` or `/v3/api-docs`.
@@ -777,6 +820,7 @@ Full request/response schemas: OpenAPI at `{API_BASE}/../swagger-ui.html` or `/v
 ['rental-guarantee', 'payments', id]
 ['rental-guarantee', 'refunds', filters]
 ['reports', 'dues-monthly', filters]
+['dashboard']
 ['users']
 ```
 
@@ -1172,7 +1216,7 @@ Document for planning only — **do not implement in v1**:
 | **PDF generation** | Server-side or client PDF library |
 | **Payment gateway** | Online transfer confirmation |
 | **Notifications** | WhatsApp/email reminders for arrears |
-| **Advanced analytics** | Charts beyond monthly dues table |
+| **Advanced analytics** | Additional charts beyond dashboard trend (e.g. RT comparison, YoY) |
 | **Export** | Excel/CSV export from reports |
 
 ---

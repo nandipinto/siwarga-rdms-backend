@@ -67,6 +67,9 @@ class SecurityConfig {
                     // Reports: Administrator + Supervisor.
                     .requestMatchers("/api/v1/reports/**")
                     .hasAnyRole(admin, supervisor)
+                    // Dashboard: Administrator + Supervisor (role-aware payload).
+                    .requestMatchers("/api/v1/dashboard")
+                    .hasAnyRole(admin, supervisor)
                     // Everything else (RT, houses, users, house import): Administrator only.
                     .requestMatchers("/api/v1/**")
                     .hasRole(admin)

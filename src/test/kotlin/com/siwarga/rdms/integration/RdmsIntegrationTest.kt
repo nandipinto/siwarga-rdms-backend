@@ -558,4 +558,135 @@ class RdmsIntegrationTest {
             )
         assertEquals(HttpStatus.BAD_REQUEST, badAmount.statusCode)
     }
+
+    @Test
+    fun `dashboard returns role-aware summary`() {
+        val adminToken = login("admin", "admin123")
+        val rwId = createRw(adminToken, "RW DSH")
+        val rtId = createRt(adminToken, rwId, "RT DSH")
+
+        fun createHouse(
+            block: String,
+            num: String,
+            owner: String,
+            email: String,
+        ): String {
+            val res =
+                rest.exchange(
+                    "/api/v1/houses",
+                    HttpMethod.POST,
+                    HttpEntity(
+                        houseRequest(
+                            rtId,
+                            block,
+                            num,
+                            owner,
+                            email,
+                            activeDate = LocalDate.of(2026, 2, 1),
+                        ),
+                        headers(adminToken),
+                    ),
+                    Map::class.java,
+                )
+            assertEquals(HttpStatus.CREATED, res.statusCode)
+            return res.body!!["id"] as String
+        }
+
+        fun fetchDashboard(): Map<*, *> =
+            rest
+                .exchange(
+                    "/api/v1/dashboard",
+                    HttpMethod.GET,
+                    HttpEntity<Void>(headers(adminToken)),
+                    Map::class.java,
+                ).body!!
+
+        val baseline = fetchDashboard()
+        val baselineStats = baseline["houseStats"] as Map<*, *>
+        val baselineTotalHouses = (baselineStats["total"] as Number).toInt()
+        val baselinePaidUp = (baselineStats["paidUp"] as Number).toInt()
+        val baselineInArrears = (baselineStats["inArrears"] as Number).toInt()
+        val baselineCollected = (baseline["totalCollectedIdr"] as Number).toLong()
+
+        val paidHouseId = createHouse("D", "1", "Paid Owner", "paid@example.com")
+        val unpaidHouseId = createHouse("D", "2", "Unpaid Owner", "unpaid@example.com")
+
+        val afterCreate = fetchDashboard()
+        val afterCreateStats = afterCreate["houseStats"] as Map<*, *>
+        assertEquals(baselineTotalHouses + 2, (afterCreateStats["total"] as Number).toInt())
+        assertEquals(baselineInArrears + 2, (afterCreateStats["inArrears"] as Number).toInt())
+
+        val pay =
+            rest.exchange(
+                "/api/v1/payments",
+                HttpMethod.POST,
+                HttpEntity(
+                    mapOf("houseId" to paidHouseId, "paymentDate" to "2026-06-01", "grossAmount" to 600000),
+                    headers(adminToken),
+                ),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.CREATED, pay.statusCode)
+
+        val adminBody = fetchDashboard()
+        assertEquals("ADMINISTRATOR", adminBody["role"])
+        assertEquals(baselineCollected + 600000, (adminBody["totalCollectedIdr"] as Number).toLong())
+
+        val houseStats = adminBody["houseStats"] as Map<*, *>
+        assertEquals(baselineTotalHouses + 2, (houseStats["total"] as Number).toInt())
+        assertEquals(baselinePaidUp + 1, (houseStats["paidUp"] as Number).toInt())
+        assertEquals(baselineInArrears + 1, (houseStats["inArrears"] as Number).toInt())
+
+        val currentMonth = adminBody["currentMonth"] as Map<*, *>
+        assertNotNull(currentMonth["percent"])
+
+        val monthlyTrend = adminBody["monthlyTrend"] as List<*>
+        assertEquals(12, monthlyTrend.size)
+
+        val recentPayments = adminBody["recentPayments"] as List<*>
+        assertTrue(recentPayments.isNotEmpty())
+        val recent =
+            recentPayments
+                .map { it as Map<*, *> }
+                .first { it["ownerName"] == "Paid Owner" }
+        assertEquals(true, recent["housePaidUp"])
+
+        val topArrears = adminBody["topArrears"] as List<*>
+        assertTrue(
+            topArrears.any { (it as Map<*, *>)["houseId"].toString() == unpaidHouseId },
+        )
+        val top = topArrears.map { it as Map<*, *> }.first { it["houseId"].toString() == unpaidHouseId }
+        assertTrue((top["totalOutstandingIdr"] as Number).toLong() > 0)
+
+        val alerts = adminBody["alerts"] as Map<*, *>
+        assertNotNull(alerts["pendingRefunds"])
+        assertNotNull(alerts["unpaidGuarantees"])
+
+        val userRes =
+            rest.exchange(
+                "/api/v1/users",
+                HttpMethod.POST,
+                HttpEntity(
+                    mapOf("username" to "spvdsh", "password" to "spvpass9", "role" to "SUPERVISOR"),
+                    headers(adminToken),
+                ),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.CREATED, userRes.statusCode)
+        val spvToken = login("spvdsh", "spvpass9")
+
+        val spvDashboard =
+            rest.exchange(
+                "/api/v1/dashboard",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers(spvToken)),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.OK, spvDashboard.statusCode)
+        val spvBody = spvDashboard.body!!
+        assertEquals("SUPERVISOR", spvBody["role"])
+        assertNotNull(spvBody["alerts"])
+        assertTrue(!spvBody.containsKey("totalCollectedIdr"))
+        assertTrue(!spvBody.containsKey("topArrears"))
+    }
 }
