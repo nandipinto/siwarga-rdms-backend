@@ -23,6 +23,7 @@
         <jjwt.version>0.12.6</jjwt.version>
         <opencsv.version>5.9</opencsv.version>
         <springdoc.version>2.6.0</springdoc.version>
+        <springdoc.maven.plugin.version>1.5</springdoc.maven.plugin.version>
         <mockk.version>1.13.13</mockk.version>
         <springmockk.version>4.0.2</springmockk.version>
     </properties>
@@ -195,4 +196,64 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>generate-openapi</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <configuration>
+                            <jvmArguments>-Dspring.application.admin.enabled=true</jvmArguments>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>pre-integration-test</id>
+                                <goals>
+                                    <goal>start</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>post-integration-test</id>
+                                <goals>
+                                    <goal>stop</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.springdoc</groupId>
+                        <artifactId>springdoc-openapi-maven-plugin</artifactId>
+                        <version>${springdoc.maven.plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>generate-openapi-json</id>
+                                <goals>
+                                    <goal>generate</goal>
+                                </goals>
+                                <configuration>
+                                    <apiDocsUrl>http://localhost:8080/v3/api-docs</apiDocsUrl>
+                                    <outputDir>${project.build.directory}/openapi</outputDir>
+                                    <outputFileName>openapi</outputFileName>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>generate-openapi-yaml</id>
+                                <goals>
+                                    <goal>generate</goal>
+                                </goals>
+                                <configuration>
+                                    <apiDocsUrl>http://localhost:8080/v3/api-docs.yaml</apiDocsUrl>
+                                    <outputDir>${project.build.directory}/openapi</outputDir>
+                                    <outputFileName>openapi.yaml</outputFileName>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

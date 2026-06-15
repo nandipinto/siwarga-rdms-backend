@@ -48,7 +48,9 @@ class SecurityConfig {
                         "/api/v1/auth/**",
                         "/swagger-ui.html",
                         "/swagger-ui/**",
+                        "/v3/api-docs",
                         "/v3/api-docs/**",
+                        "/v3/api-docs.yaml",
                     ).permitAll()
                     // Payment CSV import is Administrator-only (spec §4.2).
                     .requestMatchers(HttpMethod.POST, "/api/v1/payments/import")
