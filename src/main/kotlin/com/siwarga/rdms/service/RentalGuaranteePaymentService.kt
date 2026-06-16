@@ -22,6 +22,7 @@ class RentalGuaranteePaymentService(
     private val appUserRepository: com.siwarga.rdms.repository.AppUserRepository,
     private val documentNumberService: DocumentNumberService,
     private val refundService: RentalGuaranteeRefundService,
+    private val scopeService: ScopeService,
 ) {
     @Transactional
     fun create(
@@ -32,6 +33,7 @@ class RentalGuaranteePaymentService(
         username: String,
     ): RentalGuaranteePaymentView {
         val house = lockHouse(houseId)
+        scopeService.assertHouseInScope(house)
         val obligationId =
             house.rentalGuaranteeObligationId
                 ?: throw BadRequestException("House has no active guarantee obligation")
@@ -75,6 +77,7 @@ class RentalGuaranteePaymentService(
         note: String?,
     ): RentalGuaranteePaymentView {
         val payment = paymentRepository.findById(id).orElseThrow { NotFoundException("Guarantee payment $id not found") }
+        scopeService.assertHouseInScope(payment.house)
         payment.paymentDate = paymentDate
         payment.note = note
         val saved = paymentRepository.save(payment)
@@ -84,6 +87,7 @@ class RentalGuaranteePaymentService(
     @Transactional
     fun delete(id: UUID) {
         val payment = paymentRepository.findById(id).orElseThrow { NotFoundException("Guarantee payment $id not found") }
+        scopeService.assertHouseInScope(payment.house)
         if (refundRepository.existsByPaymentId(payment.id)) {
             throw ConflictException("Cannot delete receipt with an associated refund")
         }
@@ -94,6 +98,7 @@ class RentalGuaranteePaymentService(
     @Transactional(readOnly = true)
     fun get(id: UUID): RentalGuaranteePaymentView {
         val payment = paymentRepository.findById(id).orElseThrow { NotFoundException("Guarantee payment $id not found") }
+        scopeService.assertHouseInScope(payment.house)
         return toView(payment, refundRepository.findByPaymentId(payment.id)?.let { refundService.toView(it) })
     }
 
@@ -104,7 +109,7 @@ class RentalGuaranteePaymentService(
         from: LocalDate?,
         to: LocalDate?,
     ): List<RentalGuaranteePaymentView> =
-        paymentRepository.search(houseId, rtId, from, to).map { payment ->
+        paymentRepository.search(houseId, scopeService.effectiveRtId(rtId), from, to).map { payment ->
             toView(payment, refundRepository.findByPaymentId(payment.id)?.let { refundService.toView(it) })
         }
 

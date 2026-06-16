@@ -18,6 +18,7 @@ import java.util.UUID
 class ReportService(
     private val accountService: AccountService,
     private val houseService: HouseService,
+    private val scopeService: ScopeService,
 ) {
     @Transactional(readOnly = true)
     fun arrears(
@@ -25,6 +26,7 @@ class ReportService(
         refMonth: YearMonth = YearMonth.now(),
     ): ArrearsReport {
         val house = accountService.loadHouse(houseId)
+        scopeService.assertHouseInScope(house)
         val account = accountService.replay(house, refMonth).account
         return ArrearsReport(
             houseId = house.id,
@@ -49,17 +51,21 @@ class ReportService(
         houseId: UUID?,
         refMonth: YearMonth = YearMonth.now(),
     ): MonthlyDuesReport {
+        // Supervisor RT overrides a client rtId and downgrades a cluster request to their RT (§4.3).
+        val effectiveRtId = scopeService.effectiveRtId(rtId)
         val scope: String
         val houses: List<House>
         when {
             houseId != null -> {
                 scope = "HOUSE"
-                houses = listOf(accountService.loadHouse(houseId))
+                val house = accountService.loadHouse(houseId)
+                scopeService.assertHouseInScope(house)
+                houses = listOf(house)
             }
 
-            rtId != null -> {
+            effectiveRtId != null -> {
                 scope = "RT"
-                houses = houseService.list(rtId)
+                houses = houseService.list(effectiveRtId)
             }
 
             else -> {
@@ -110,7 +116,7 @@ class ReportService(
         return MonthlyDuesReport(
             scope = scope,
             houseId = houseId,
-            rtId = rtId,
+            rtId = if (scope == "HOUSE") null else effectiveRtId,
             rows = rows,
             totalExpectedIdr = rows.sumOf { it.expectedIdr },
             totalCollectedIdr = rows.sumOf { it.collectedIdr },

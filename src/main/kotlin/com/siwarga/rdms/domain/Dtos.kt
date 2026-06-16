@@ -122,6 +122,9 @@ data class DashboardTopArrearsEntry(
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class DashboardResponse(
     val role: String,
+    // RT scope for supervisors; null for administrators (cluster-wide). Spec §4.3, §5.5.
+    val rtId: UUID? = null,
+    val rtCode: String? = null,
     val alerts: DashboardAlerts,
     val totalCollectedIdr: Long? = null,
     val currentMonth: DashboardCurrentMonth? = null,

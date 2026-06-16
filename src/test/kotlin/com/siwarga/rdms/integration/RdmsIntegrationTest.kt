@@ -118,6 +118,27 @@ class RdmsIntegrationTest {
         return res.body!!["id"] as String
     }
 
+    /** Create a SUPERVISOR confined to [rtId] and return its id. */
+    private fun createSupervisor(
+        adminToken: String,
+        username: String,
+        password: String,
+        rtId: String,
+    ): String {
+        val res =
+            rest.exchange(
+                "/api/v1/users",
+                HttpMethod.POST,
+                HttpEntity(
+                    mapOf("username" to username, "password" to password, "role" to "SUPERVISOR", "rtId" to rtId),
+                    headers(adminToken),
+                ),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.CREATED, res.statusCode)
+        return res.body!!["id"] as String
+    }
+
     @Test
     fun `full payment lifecycle and role enforcement`() {
         val adminToken = login("admin", "admin123")
@@ -184,18 +205,8 @@ class RdmsIntegrationTest {
             )
         assertEquals(HttpStatus.BAD_REQUEST, bad.statusCode)
 
-        // Create a SUPERVISOR and verify it cannot access RT management.
-        val userRes =
-            rest.exchange(
-                "/api/v1/users",
-                HttpMethod.POST,
-                HttpEntity(
-                    mapOf("username" to "spv", "password" to "spvpass1", "role" to "SUPERVISOR"),
-                    headers(adminToken),
-                ),
-                Map::class.java,
-            )
-        assertEquals(HttpStatus.CREATED, userRes.statusCode)
+        // Create a SUPERVISOR confined to this RT and verify it cannot access RT management.
+        createSupervisor(adminToken, "spv", "spvpass1", rtId)
 
         val spvToken = login("spv", "spvpass1")
         val forbidden =
@@ -520,18 +531,8 @@ class RdmsIntegrationTest {
         assertEquals("COMPLETED", complete.body!!["status"])
         assertTrue((complete.body!!["refundNumber"] as String).startsWith("RF-"))
 
-        // Supervisor can record guarantee payment for new tenant
-        val userRes =
-            rest.exchange(
-                "/api/v1/users",
-                HttpMethod.POST,
-                HttpEntity(
-                    mapOf("username" to "spv2", "password" to "spvpass2", "role" to "SUPERVISOR"),
-                    headers(adminToken),
-                ),
-                Map::class.java,
-            )
-        assertEquals(HttpStatus.CREATED, userRes.statusCode)
+        // Supervisor (confined to this RT) can record guarantee payment for new tenant
+        createSupervisor(adminToken, "spv2", "spvpass2", rtId)
         val spvToken = login("spv2", "spvpass2")
         val spvPay =
             rest.exchange(
@@ -662,17 +663,7 @@ class RdmsIntegrationTest {
         assertNotNull(alerts["pendingRefunds"])
         assertNotNull(alerts["unpaidGuarantees"])
 
-        val userRes =
-            rest.exchange(
-                "/api/v1/users",
-                HttpMethod.POST,
-                HttpEntity(
-                    mapOf("username" to "spvdsh", "password" to "spvpass9", "role" to "SUPERVISOR"),
-                    headers(adminToken),
-                ),
-                Map::class.java,
-            )
-        assertEquals(HttpStatus.CREATED, userRes.statusCode)
+        createSupervisor(adminToken, "spvdsh", "spvpass9", rtId)
         val spvToken = login("spvdsh", "spvpass9")
 
         val spvDashboard =
@@ -686,7 +677,151 @@ class RdmsIntegrationTest {
         val spvBody = spvDashboard.body!!
         assertEquals("SUPERVISOR", spvBody["role"])
         assertNotNull(spvBody["alerts"])
-        assertTrue(!spvBody.containsKey("totalCollectedIdr"))
-        assertTrue(!spvBody.containsKey("topArrears"))
+        // Supervisor now receives the SAME full payload as the administrator, RT-scoped (§4.3, §5.5).
+        assertEquals(rtId, spvBody["rtId"])
+        assertEquals("RT DSH", spvBody["rtCode"])
+        assertTrue(spvBody.containsKey("totalCollectedIdr"))
+        assertTrue(spvBody.containsKey("topArrears"))
+        assertTrue(spvBody.containsKey("monthlyTrend"))
+    }
+
+    private fun createHouse(
+        token: String,
+        rtId: String,
+        block: String,
+        number: String,
+        owner: String,
+    ): String {
+        val res =
+            rest.exchange(
+                "/api/v1/houses",
+                HttpMethod.POST,
+                HttpEntity(houseRequest(rtId, block, number, owner, "$owner@example.com"), headers(token)),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.CREATED, res.statusCode)
+        return res.body!!["id"] as String
+    }
+
+    private fun recordPayment(
+        token: String,
+        houseId: String,
+        date: String,
+        gross: Int,
+    ): HttpStatus {
+        val res =
+            rest.exchange(
+                "/api/v1/payments",
+                HttpMethod.POST,
+                HttpEntity(mapOf("houseId" to houseId, "paymentDate" to date, "grossAmount" to gross), headers(token)),
+                String::class.java,
+            )
+        return res.statusCode as HttpStatus
+    }
+
+    @Test
+    fun `supervisor is confined to their RT`() {
+        val adminToken = login("admin", "admin123")
+        val rwId = createRw(adminToken, "RW SCOPE")
+        val rtA = createRt(adminToken, rwId, "RT SC-A")
+        val rtB = createRt(adminToken, rwId, "RT SC-B")
+
+        val houseA = createHouse(adminToken, rtA, "A", "1", "Andi")
+        val houseB = createHouse(adminToken, rtB, "B", "1", "Bayu")
+
+        // Admin records one payment in each RT.
+        assertEquals(HttpStatus.CREATED, recordPayment(adminToken, houseA, "2026-02-01", 120000))
+        assertEquals(HttpStatus.CREATED, recordPayment(adminToken, houseB, "2026-02-01", 120000))
+
+        // Login as a supervisor confined to RT A; login response exposes the RT identity.
+        createSupervisor(adminToken, "scopeA", "scopepass1", rtA)
+        val loginRes =
+            rest.postForEntity(
+                "/api/v1/auth/login",
+                mapOf("username" to "scopeA", "password" to "scopepass1"),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.OK, loginRes.statusCode)
+        assertEquals(rtA, loginRes.body!!["rtId"])
+        assertEquals("RT SC-A", loginRes.body!!["rtCode"])
+        val spvA = loginRes.body!!["token"] as String
+
+        // House list is restricted to RT A.
+        val houseList =
+            rest.exchange(
+                "/api/v1/houses",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers(spvA)),
+                List::class.java,
+            )
+        assertEquals(HttpStatus.OK, houseList.statusCode)
+        assertEquals(1, houseList.body!!.size)
+        assertEquals(houseA, (houseList.body!![0] as Map<*, *>)["id"])
+
+        // Single-resource access outside RT A → 403; inside → 200.
+        fun getHouse(id: String) =
+            rest.exchange("/api/v1/houses/$id", HttpMethod.GET, HttpEntity<Void>(headers(spvA)), String::class.java).statusCode
+        assertEquals(HttpStatus.FORBIDDEN, getHouse(houseB))
+        assertEquals(HttpStatus.OK, getHouse(houseA))
+
+        // Mutations / reports outside RT A → 403.
+        assertEquals(HttpStatus.FORBIDDEN, recordPayment(spvA, houseB, "2026-03-01", 120000))
+        val arrearsB =
+            rest.exchange("/api/v1/reports/arrears/$houseB", HttpMethod.GET, HttpEntity<Void>(headers(spvA)), String::class.java)
+        assertEquals(HttpStatus.FORBIDDEN, arrearsB.statusCode)
+
+        // Payment list ignores a client rtId pointing at RT B — only RT A's payment is visible.
+        val payList =
+            rest.exchange(
+                "/api/v1/payments?rtId=$rtB",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers(spvA)),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.OK, payList.statusCode)
+        val payContent = payList.body!!["content"] as List<*>
+        assertEquals(1, payContent.size)
+        assertEquals(houseA, (payContent[0] as Map<*, *>)["houseId"])
+
+        // 1:1 — a second supervisor cannot take RT A.
+        val dup =
+            rest.exchange(
+                "/api/v1/users",
+                HttpMethod.POST,
+                HttpEntity(
+                    mapOf("username" to "scopeA2", "password" to "scopepass2", "role" to "SUPERVISOR", "rtId" to rtA),
+                    headers(adminToken),
+                ),
+                String::class.java,
+            )
+        assertEquals(HttpStatus.CONFLICT, dup.statusCode)
+
+        // Handoff — deactivating the current supervisor releases RT A for a new one.
+        val spvAId = rest
+            .exchange("/api/v1/users", HttpMethod.GET, HttpEntity<Void>(headers(adminToken)), List::class.java)
+            .body!!
+            .map { it as Map<*, *> }
+            .first { it["username"] == "scopeA" }["id"] as String
+        val deactivate =
+            rest.exchange(
+                "/api/v1/users/$spvAId",
+                HttpMethod.PUT,
+                HttpEntity(mapOf("isActive" to false), headers(adminToken)),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.OK, deactivate.statusCode)
+
+        val handoff =
+            rest.exchange(
+                "/api/v1/users",
+                HttpMethod.POST,
+                HttpEntity(
+                    mapOf("username" to "scopeA3", "password" to "scopepass3", "role" to "SUPERVISOR", "rtId" to rtA),
+                    headers(adminToken),
+                ),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.CREATED, handoff.statusCode)
+        assertEquals(rtA, handoff.body!!["rtId"])
     }
 }

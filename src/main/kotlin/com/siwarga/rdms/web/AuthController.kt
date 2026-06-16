@@ -39,6 +39,6 @@ class AuthController(
         )
         val user = userRepository.findByUsername(req.username)!!
         val token = jwtService.generate(user.username, user.role.name)
-        return LoginResponse(token, user.role.name, user.username)
+        return LoginResponse(token, user.role.name, user.username, user.rt?.id, user.rt?.rtCode)
     }
 }

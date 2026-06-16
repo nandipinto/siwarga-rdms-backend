@@ -1,9 +1,9 @@
 # Resident Dues Management System — Technical Specification
 
-> **Document Status:** Draft v1.5
+> **Document Status:** Draft v1.6
 > **Prepared for:** AI Coding Agents / Backend Developers
 > **Effective Date:** 2026-05-31
-> **Last Updated:** 2026-06-15
+> **Last Updated:** 2026-06-16
 > **System Start Date:** 1 January 2024
 
 ---
@@ -18,6 +18,7 @@
 | v1.3 | 2026-06-10 | Added rental-guarantee **payment tracking and receipts** — `RentalGuaranteePayment` entity (§3.7), obligation-cycle model via `rental_guarantee_obligation_id` on House (§3.2), collection rules (§2.6), CRUD API + receipt response (§5.6), access matrix update (§4.2), optional CSV import (§9.3). |
 | v1.4 | 2026-06-10 | Added rental-guarantee **refund on lease end** — `RentalGuaranteeRefund` entity (§3.8), refund rules (§2.7), tenant contact snapshots on payment, auto `PENDING` refund on lease termination, refund completion API (§5.7). Clarified pending refunds do **not** block new-tenant registration (§2.7). |
 | v1.5 | 2026-06-15 | Added **Dashboard** aggregated endpoint (§5.5) — role-aware summary for Administrator (KPIs, calendar-year income trend, recent payments, top arrears, operational alerts) and Supervisor (alerts only). Access matrix updated (§4.2). |
+| v1.6 | 2026-06-16 | **RT-scoped supervisors.** A supervisor is now confined to exactly one RT. Added `rt_id` FK on `AppUser` with `UNIQUE` (strict 1:1) and an activity-aware requirement; deactivation releases the RT for handoff (§3.5). Rewrote role definitions and the access matrix with a Scope column; added §4.3 **RT Scoping for Supervisors** (principal-derived RT, silent `rt_id` override on lists/reports/dashboard, `403` on out-of-RT single-resource/create/update, fail-closed on null RT) and the `rtId`/`rtCode` login identity. House **read** opened to supervisors (own RT). Dashboard (§5.5) now returns the **same full payload** for supervisors, RT-scoped, replacing the alerts-only shape. Per-endpoint scope notes on §5.3/§5.4/§5.6/§5.7. RT delete guard also blocks a linked supervisor (§5.2). |
 
 ---
 
@@ -335,9 +336,17 @@ Normalises how a single Payment is distributed across periods and penalty items.
 | `username` | VARCHAR(100) | UNIQUE, NOT NULL | Login identifier |
 | `password_hash` | TEXT | NOT NULL | Bcrypt / Argon2 hash |
 | `role` | ENUM | NOT NULL | `ADMINISTRATOR` \| `SUPERVISOR` |
+| `rt_id` | FK → RT.id | NULLABLE, **UNIQUE** | RT the supervisor is confined to (§4.3). `NULL` for administrators; required for **active** supervisors (see constraint below) |
 | `is_active` | BOOLEAN | NOT NULL, DEFAULT TRUE | Soft-disable flag |
 | `created_at` | TIMESTAMPTZ | NOT NULL | Record creation timestamp |
 | `updated_at` | TIMESTAMPTZ | NOT NULL | Last modification timestamp |
+
+**`rt_id` constraints:**
+
+- **UNIQUE** — at most one user may reference a given RT. Because PostgreSQL treats `NULL` values as distinct, multiple administrators (all `NULL`) coexist freely; the constraint enforces a strict **1:1** between an RT and its supervisor.
+- **Activity-aware requirement** — `rt_id` MUST be non-null when `role = SUPERVISOR` AND `is_active = true`; MUST be `NULL` when `role = ADMINISTRATOR`. A **deactivated** supervisor (`is_active = false`) MAY have `rt_id = NULL`.
+- **Supervisor handoff** — deactivating a supervisor clears their `rt_id`, *releasing* the RT so it can be assigned to a new supervisor while the old row is retained for audit history. Assigning an RT that an **active** supervisor already holds is rejected with **409 Conflict** (§4.3).
+- **Index:** `(rt_id)` UNIQUE.
 
 ---
 
@@ -418,25 +427,51 @@ Records return of a guarantee fee when a lease ends. One refund per receipt.
 
 | Role | Permissions |
 |---|---|
-| **ADMINISTRATOR** | Full access — all operations on all resources. |
-| **SUPERVISOR** | Payment management only: Create, Read, Update, Delete dues payments, rental-guarantee receipts, and rental-guarantee refunds. No access to RT or House management, user management, or CSV imports. |
+| **ADMINISTRATOR** | Full access — all operations on all resources, **cluster-wide** (every RT). |
+| **SUPERVISOR** | Confined to **exactly one RT** (`AppUser.rt_id`, §3.5). Within that RT only: Create, Read, Update, Delete dues payments, rental-guarantee receipts, and rental-guarantee refunds; read-only access to houses; and all reporting and the dashboard. No access to RT or House management, user management, or CSV imports. All data is automatically scoped to the supervisor's RT (§4.3). |
 
 ### 4.2 Endpoint-Level Access Matrix
 
-| Endpoint Group | ADMINISTRATOR | SUPERVISOR |
-|---|:---:|:---:|
-| RT Management (CRUD) | ✅ | ❌ |
-| House / Resident Management (CRUD) | ✅ | ❌ |
-| House CSV Import | ✅ | ❌ |
-| User Management | ✅ | ❌ |
-| Payment Management (CRUD) | ✅ | ✅ |
-| Payment CSV Import | ✅ | ❌ |
-| Rental Guarantee Receipt Management (CRUD) | ✅ | ✅ |
-| Rental Guarantee Refund Management | ✅ | ✅ |
-| Rental Guarantee CSV Import | ✅ | ❌ |
-| Arrears & Penalty Report | ✅ | ✅ |
-| Monthly Dues Report | ✅ | ✅ |
-| Dashboard Summary | ✅ (full) | ✅ (alerts only) |
+The **Scope** column states the row-level visibility: an administrator sees the whole cluster; a supervisor sees only resources belonging to their own RT (§4.3).
+
+| Endpoint Group | ADMINISTRATOR | SUPERVISOR | Supervisor scope |
+|---|:---:|:---:|---|
+| RT Management (CRUD) | ✅ | ❌ | — |
+| House / Resident Management (write/CRUD) | ✅ | ❌ | — |
+| House Read (list + detail) | ✅ | ✅ (read-only) | Own RT only |
+| House CSV Import | ✅ | ❌ | — |
+| User Management | ✅ | ❌ | — |
+| Payment Management (CRUD) | ✅ | ✅ | Own RT only |
+| Payment CSV Import | ✅ | ❌ | — |
+| Rental Guarantee Receipt Management (CRUD) | ✅ | ✅ | Own RT only |
+| Rental Guarantee Refund Management | ✅ | ✅ | Own RT only |
+| Rental Guarantee CSV Import | ✅ | ❌ | — |
+| Arrears & Penalty Report | ✅ | ✅ | Own RT only |
+| Monthly Dues Report | ✅ | ✅ | Own RT only |
+| Dashboard Summary | ✅ (full, cluster-wide) | ✅ (full, RT-scoped) | Own RT only |
+
+> **NOTE:** `SecurityConfig` gates access by **role and HTTP path** only (coarse-grained). Row-level RT confinement for supervisors is enforced in the **service layer** per §4.3 — the path matchers alone are not the scoping boundary.
+
+---
+
+### 4.3 RT Scoping for Supervisors
+
+A supervisor's effective RT is **always** derived from their own user record (`AppUser.rt_id`, §3.5) resolved from the authenticated JWT principal — **never** from request parameters or bodies. Administrators are unscoped (cluster-wide). The following rules apply uniformly across payments (§5.4), the dashboard (§5.5), reporting (§5.6), and rental-guarantee receipts/refunds (§5.7, §5.8):
+
+| Operation kind | Rule for a supervisor |
+|---|---|
+| **List / report / dashboard** (collection or aggregate) | Results are silently restricted to the supervisor's RT. Any client-supplied `rt_id` filter is **ignored and overridden** with the supervisor's own RT (no error). Administrators retain the `rt_id` filter as supplied. |
+| **Single-resource read** (`GET /…/{id}`, `GET /houses/{id}`) | If the resource resolves to an RT other than the supervisor's RT → **403 Forbidden**. (A payment/receipt/refund's RT is derived via its house: `resource → house → rt_id`.) |
+| **Create / Update** (`POST`, `PUT`) | The target house MUST belong to the supervisor's RT, else **403 Forbidden**. |
+| **No assigned / null RT** (defensive) | A supervisor whose `rt_id` is `NULL` (a data error per §3.5) is treated as scoped to an empty set — scoped endpoints return empty results or `403`, never cluster-wide data (**fail closed**). |
+
+**Login identity.** So a client can label and pre-filter the UI, the authentication response exposes the supervisor's RT identity:
+
+```json
+{ "token": "<JWT>", "role": "SUPERVISOR", "username": "budi", "rtId": "<UUID>", "rtCode": "RT 05" }
+```
+
+`rtId` and `rtCode` are **`null`** for administrators. These fields are identity hints only — the backend remains the enforcement gate regardless of what the client sends.
 
 ---
 
@@ -461,17 +496,17 @@ Records return of a guarantee fee when a lease ends. One refund per receipt.
 | POST | `/rts` | 201 | Create a new RT |
 | GET | `/rts/{id}` | 200 | Get RT by ID |
 | PUT | `/rts/{id}` | 200 | Update RT |
-| DELETE | `/rts/{id}` | 204 | Delete RT (only if no houses are linked) |
+| DELETE | `/rts/{id}` | 204 | Delete RT (only if **no houses AND no supervisor** are linked; §3.5) |
 
 ---
 
-### 5.3 House Endpoints *(Administrator only)*
+### 5.3 House Endpoints *(write: Administrator only; read: Administrator + Supervisor)*
 
 | Method | Path | Status | Description |
 |---|---|:---:|---|
-| GET | `/houses` | 200 | List all houses (filterable by `rt_id`) |
-| POST | `/houses` | 201 | Create a new house |
-| GET | `/houses/{id}` | 200 | Get house by ID (includes `rental_guarantee` summary per §5.6 when applicable) |
+| GET | `/houses` | 200 | List houses (filterable by `rt_id`). **Supervisor:** restricted to own RT; supplied `rt_id` overridden (§4.3) |
+| POST | `/houses` | 201 | Create a new house *(Administrator only)* |
+| GET | `/houses/{id}` | 200 | Get house by ID (includes `rental_guarantee` summary per §5.6 when applicable). **Supervisor:** `403` if house is outside own RT (§4.3) |
 | PUT | `/houses/{id}` | 200 | Update house — also the mechanism for an **ownership change** (update `owner_name`/`email`/`phone`) or occupancy/lease change (`status`, `tenant_name`/`tenant_email`/`tenant_phone`, `lease_duration_months`, `rental_guarantee_amount_idr`). Lease termination auto-creates a `PENDING` refund when applicable (§2.7). |
 | POST | `/houses/import` | 202 | Bulk import from CSV/TXT file (`multipart/form-data`) |
 
@@ -518,6 +553,8 @@ rt_code, block_code, house_number, owner_name, email, phone, active_date, status
 | DELETE | `/payments/{id}` | 204 | Delete payment (re-calculates account balance) |
 | POST | `/payments/import` | 202 | Bulk import from CSV/TXT *(Admin only)* |
 
+> **SUPERVISOR SCOPE (§4.3):** `GET /payments` is restricted to the supervisor's RT (supplied `rt_id` overridden). `GET/PUT/DELETE /payments/{id}` return `403` when the payment's house is outside the supervisor's RT. `POST /payments` returns `403` when `house_id` is outside the supervisor's RT.
+
 **`POST /payments` — request body:**
 ```json
 {
@@ -541,20 +578,20 @@ block_code, house_number, payment_date, gross_amount, note
 
 | Method | Path | Status | Description |
 |---|---|:---:|---|
-| GET | `/dashboard` | 200 | Role-aware dashboard summary (cluster-wide; RT scope deferred to v2) |
+| GET | `/dashboard` | 200 | Role-aware dashboard summary. **Administrator:** cluster-wide. **Supervisor:** same payload shape, RT-scoped (§4.3) |
 
-**Access:** Administrator receives the full payload; Supervisor receives `role` and `alerts` only.
+**Access:** Both roles receive the **same full payload shape**. The administrator's figures are cluster-wide; the supervisor's figures are restricted to their own RT (§4.3). The supervisor response additionally carries `rtId` / `rtCode` so the UI can label the scope.
 
-**Computation rules (Administrator payload):**
+**Computation rules.** The rules below describe the administrator (cluster-wide) computation. For a **supervisor**, every aggregation is restricted to houses where `house.rt_id = supervisor.rt_id` — `totalCollectedIdr`, `currentMonth`, `houseStats`, `monthlyTrend`, `recentPayments`, `topArrears`, and `alerts` all reflect that single RT.
 
-| Field | Rule |
+| Field | Rule (administrator = cluster; supervisor = own RT) |
 |---|---|
 | `totalCollectedIdr` | `SUM(payment.gross_amount)` — all-time gross cash received |
 | `currentMonth.percent` | `round(collectedIdr × 100 / expectedIdr)`; `0` when `expectedIdr = 0` |
-| `currentMonth.expectedIdr` / `collectedIdr` | Cluster totals for the reference calendar month (same aggregation as `/reports/dues/monthly`, current-month row) |
+| `currentMonth.expectedIdr` / `collectedIdr` | Totals for the reference calendar month (same aggregation as `/reports/dues/monthly`, current-month row) |
 | `houseStats.paidUp` | Houses where `arrearsTotal = 0` **and** `penaltyTotal = 0` at reference month |
 | `houseStats.inArrears` | Houses where `arrearsTotal + penaltyTotal > 0` |
-| `monthlyTrend` | Twelve entries for the current calendar year (Jan–Dec), zero-filled; `collectedIdr` = cluster dues cash allocated per month |
+| `monthlyTrend` | Twelve entries for the current calendar year (Jan–Dec), zero-filled; `collectedIdr` = dues cash allocated per month |
 | `recentPayments` | Five most recent payments by `created_at DESC`; `primaryPeriod` = latest `DUES` allocation period on that payment; `housePaidUp` = account fully caught up (`arrearsTotal = 0` and `penaltyTotal = 0`) immediately after that payment in replay order |
 | `topArrears` | Up to 10 houses with `totalOutstandingIdr = totalArrearsIdr + totalPenaltiesIdr > 0`, descending; ties broken by `ownerName` ascending |
 | `alerts.pendingRefunds` | Count of refunds with `status = PENDING` |
@@ -611,17 +648,24 @@ block_code, house_number, payment_date, gross_amount, note
 ```
 
 **`GET /dashboard` — Supervisor response shape:**
+
+Identical to the administrator shape above, with all figures restricted to the supervisor's RT, plus `rtId` / `rtCode` identifying the scope:
 ```json
 {
   "role": "SUPERVISOR",
-  "alerts": {
-    "pendingRefunds": 2,
-    "unpaidGuarantees": 5
-  }
+  "rtId": "<UUID>",
+  "rtCode": "RT 05",
+  "totalCollectedIdr": 2480000,
+  "currentMonth": { "year": 2026, "month": 6, "expectedIdr": 3600000, "collectedIdr": 3060000, "percent": 85 },
+  "houseStats": { "total": 30, "paidUp": 24, "inArrears": 6 },
+  "monthlyTrend": [ { "year": 2026, "month": 1, "collectedIdr": 0 } ],
+  "recentPayments": [ /* same shape, own RT only */ ],
+  "topArrears": [ /* same shape, own RT only */ ],
+  "alerts": { "pendingRefunds": 1, "unpaidGuarantees": 2 }
 }
 ```
 
-> **NOTE:** JSON property names follow Jackson's default camelCase serialisation of Kotlin data classes. Administrator-only fields are omitted (not `null`) in the Supervisor response. Existing report endpoints (`/reports/**`) remain available for drill-down pages (Laporan Iuran, house-level arrears detail).
+> **NOTE:** JSON property names follow Jackson's default camelCase serialisation of Kotlin data classes. Both roles return the **same payload shape**; only the data scope differs (§4.3). `rtId` / `rtCode` are present for supervisors and `null` for administrators. Existing report endpoints (`/reports/**`) remain available for drill-down pages (Laporan Iuran, house-level arrears detail), also RT-scoped for supervisors.
 
 ---
 
@@ -633,6 +677,8 @@ block_code, house_number, payment_date, gross_amount, note
 | GET | `/reports/dues/monthly?rt_id={id}` | 200 | Monthly dues summary for one RT |
 | GET | `/reports/dues/monthly?house_id={id}` | 200 | Monthly dues history for one house |
 | GET | `/reports/arrears/{house_id}` | 200 | Arrears & penalty detail for one house |
+
+> **SUPERVISOR SCOPE (§4.3):** Monthly dues reports are restricted to the supervisor's RT — a `CLUSTER` request is downgraded to the supervisor's RT (scope returned as `RT`), and a supplied `rt_id` is overridden with their own. `GET /reports/arrears/{house_id}` returns `403` when the house is outside the supervisor's RT.
 
 **`GET /reports/dues/monthly` — response shape:**
 ```json
@@ -688,6 +734,8 @@ block_code, house_number, payment_date, gross_amount, note
 | PUT | `/rental-guarantee/payments/{id}` | 200 | Update `payment_date` and/or `note` |
 | DELETE | `/rental-guarantee/payments/{id}` | 204 | Void receipt; current obligation becomes UNPAID |
 | POST | `/rental-guarantee/payments/import` | 202 | Bulk import from CSV/TXT *(Administrator only)* |
+
+> **SUPERVISOR SCOPE (§4.3):** Receipt and refund lists are restricted to the supervisor's RT (supplied `rt_id` overridden); single-resource reads, creates, and mutations return `403` when the receipt/refund's house lies outside the supervisor's RT.
 
 **`POST /rental-guarantee/payments` — request body:**
 ```json

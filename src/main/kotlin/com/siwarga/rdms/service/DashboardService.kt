@@ -15,7 +15,6 @@ import com.siwarga.rdms.domain.DashboardTopArrearsEntry
 import com.siwarga.rdms.domain.House
 import com.siwarga.rdms.domain.Payment
 import com.siwarga.rdms.domain.RefundStatus
-import com.siwarga.rdms.domain.UserRole
 import com.siwarga.rdms.repository.PaymentAllocationRepository
 import com.siwarga.rdms.repository.PaymentRepository
 import com.siwarga.rdms.repository.RentalGuaranteeRefundRepository
@@ -23,6 +22,7 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.YearMonth
+import java.util.UUID
 
 @Service
 class DashboardService(
@@ -32,34 +32,42 @@ class DashboardService(
     private val allocationRepository: PaymentAllocationRepository,
     private val guaranteePaymentService: RentalGuaranteePaymentService,
     private val refundRepository: RentalGuaranteeRefundRepository,
+    private val scopeService: ScopeService,
 ) {
     @Transactional(readOnly = true)
-    fun dashboard(role: UserRole): DashboardResponse {
-        val alerts = buildAlerts()
-        if (role == UserRole.SUPERVISOR) {
-            return DashboardResponse(role = role.name, alerts = alerts)
-        }
-        return administratorDashboard(role, alerts)
+    fun dashboard(): DashboardResponse {
+        // Both roles receive the full payload; a supervisor's figures are confined to their RT (§4.3, §5.5).
+        val user = scopeService.currentUser()
+        val rtId = scopeService.supervisorRtId() // null for administrators (cluster-wide)
+        return buildDashboard(role = user.role.name, rtId = rtId, rtCode = user.rt?.rtCode)
     }
 
-    private fun buildAlerts(): DashboardAlerts {
+    private fun buildAlerts(rtId: UUID?): DashboardAlerts {
         val unpaidGuarantees =
-            houseService.list(null).count { house ->
+            houseService.list(rtId).count { house ->
                 guaranteePaymentService.buildSummary(house)?.status == "UNPAID"
             }
+        val pendingRefunds =
+            if (rtId == null) {
+                refundRepository.countByStatus(RefundStatus.PENDING)
+            } else {
+                refundRepository.countByStatusAndRtId(RefundStatus.PENDING, rtId)
+            }
         return DashboardAlerts(
-            pendingRefunds = refundRepository.countByStatus(RefundStatus.PENDING),
+            pendingRefunds = pendingRefunds,
             unpaidGuarantees = unpaidGuarantees,
         )
     }
 
-    private fun administratorDashboard(
-        role: UserRole,
-        alerts: DashboardAlerts,
+    private fun buildDashboard(
+        role: String,
+        rtId: UUID?,
+        rtCode: String?,
     ): DashboardResponse {
+        val alerts = buildAlerts(rtId)
         val refMonth = YearMonth.now()
         val refYear = refMonth.year
-        val houses = houseService.list(null)
+        val houses = houseService.list(rtId)
 
         var paidUp = 0
         var inArrears = 0
@@ -132,10 +140,15 @@ class DashboardService(
                 ).take(10)
                 .mapIndexed { index, entry -> entry.copy(rank = index + 1) }
 
+        val totalCollected =
+            if (rtId == null) paymentRepository.sumGrossAmount() else paymentRepository.sumGrossAmountByRtId(rtId)
+
         return DashboardResponse(
-            role = role.name,
+            role = role,
+            rtId = rtId,
+            rtCode = rtCode,
             alerts = alerts,
-            totalCollectedIdr = paymentRepository.sumGrossAmount(),
+            totalCollectedIdr = totalCollected,
             currentMonth =
                 DashboardCurrentMonth(
                     year = refMonth.year,
@@ -151,13 +164,18 @@ class DashboardService(
                     inArrears = inArrears,
                 ),
             monthlyTrend = monthlyTrend,
-            recentPayments = buildRecentPayments(refMonth),
+            recentPayments = buildRecentPayments(refMonth, rtId),
             topArrears = topArrears,
         )
     }
 
-    private fun buildRecentPayments(refMonth: YearMonth): List<DashboardRecentPayment> {
-        val payments = paymentRepository.findRecent(PageRequest.of(0, 5))
+    private fun buildRecentPayments(
+        refMonth: YearMonth,
+        rtId: UUID?,
+    ): List<DashboardRecentPayment> {
+        val pageable = PageRequest.of(0, 5)
+        val payments =
+            if (rtId == null) paymentRepository.findRecent(pageable) else paymentRepository.findRecentByRtId(rtId, pageable)
         return payments.map { payment ->
             val house = payment.house
             DashboardRecentPayment(

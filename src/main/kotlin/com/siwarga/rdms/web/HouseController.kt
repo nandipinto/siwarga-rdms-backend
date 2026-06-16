@@ -2,6 +2,7 @@ package com.siwarga.rdms.web
 
 import com.siwarga.rdms.service.HouseService
 import com.siwarga.rdms.service.ImportService
+import com.siwarga.rdms.service.ScopeService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -33,24 +34,32 @@ import java.util.UUID
 class HouseController(
     private val service: HouseService,
     private val importService: ImportService,
+    private val scopeService: ScopeService,
 ) {
-    @Operation(summary = "List houses", description = "Optionally filter by RT.")
+    @Operation(summary = "List houses", description = "Optionally filter by RT. Supervisors see only their own RT.")
     @ApiResponse(responseCode = "200", description = "House list")
     @GetMapping
     fun list(
         @Parameter(description = "Filter by RT ID")
         @RequestParam(name = "rtId", required = false) rtId: UUID?,
-    ): List<HouseResponse> = service.list(rtId).map { service.buildDetail(it).toResponse() }
+    ): List<HouseResponse> =
+        // Supervisor RT overrides any client-supplied rtId (spec §4.3); admin keeps it.
+        service.list(scopeService.effectiveRtId(rtId)).map { service.buildDetail(it).toResponse() }
 
     @Operation(summary = "Get house by ID")
     @ApiResponses(
         ApiResponse(responseCode = "200", description = "House found"),
+        ApiResponse(responseCode = "403", description = "House outside supervisor's RT"),
         ApiResponse(responseCode = "404", description = "House not found"),
     )
     @GetMapping("/{id}")
     fun get(
         @PathVariable id: UUID,
-    ): HouseResponse = service.buildDetail(service.get(id)).toResponse()
+    ): HouseResponse {
+        val house = service.get(id)
+        scopeService.assertHouseInScope(house)
+        return service.buildDetail(house).toResponse()
+    }
 
     @Operation(summary = "Create house")
     @ApiResponses(

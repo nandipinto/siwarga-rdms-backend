@@ -3,6 +3,7 @@ package com.siwarga.rdms.web
 import com.siwarga.rdms.calc.PaymentRejectedException
 import com.siwarga.rdms.errors.BadRequestException
 import com.siwarga.rdms.errors.ConflictException
+import com.siwarga.rdms.errors.ForbiddenException
 import com.siwarga.rdms.errors.NotFoundException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
@@ -24,6 +25,9 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(BadRequestException::class)
     fun handleBadRequest(ex: BadRequestException): ProblemDetail = problem(HttpStatus.BAD_REQUEST, "Bad request", ex.message)
+
+    @ExceptionHandler(ForbiddenException::class)
+    fun handleForbidden(ex: ForbiddenException): ProblemDetail = problem(HttpStatus.FORBIDDEN, "Access denied", ex.message)
 
     @ExceptionHandler(PaymentRejectedException::class)
     fun handlePaymentRejected(ex: PaymentRejectedException): ProblemDetail = problem(HttpStatus.BAD_REQUEST, "Payment rejected", ex.message)

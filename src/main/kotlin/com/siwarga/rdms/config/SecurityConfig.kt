@@ -70,7 +70,11 @@ class SecurityConfig {
                     // Dashboard: Administrator + Supervisor (role-aware payload).
                     .requestMatchers("/api/v1/dashboard")
                     .hasAnyRole(admin, supervisor)
-                    // Everything else (RT, houses, users, house import): Administrator only.
+                    // House READ: Administrator + Supervisor (RT-scoped, spec §4.3). Writes/import
+                    // stay Administrator-only via the catch-all below (this matcher is GET-only).
+                    .requestMatchers(HttpMethod.GET, "/api/v1/houses", "/api/v1/houses/**")
+                    .hasAnyRole(admin, supervisor)
+                    // Everything else (RW, RT, house write/import, users): Administrator only.
                     .requestMatchers("/api/v1/**")
                     .hasRole(admin)
                     .anyRequest()

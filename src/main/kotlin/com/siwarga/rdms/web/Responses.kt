@@ -182,6 +182,8 @@ data class UserResponse(
     val username: String,
     val role: String,
     val isActive: Boolean,
+    val rtId: UUID?,
+    val rtCode: String?,
 )
 
-fun AppUser.toResponse() = UserResponse(id, username, role.name, isActive)
+fun AppUser.toResponse() = UserResponse(id, username, role.name, isActive, rt?.id, rt?.rtCode)

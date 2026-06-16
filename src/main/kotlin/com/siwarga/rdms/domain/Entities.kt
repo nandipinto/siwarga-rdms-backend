@@ -138,6 +138,11 @@ class AppUser(
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20)
     var role: UserRole,
+    // RT a supervisor is confined to (spec §3.5, §4.3). NULL for administrators and deactivated
+    // supervisors; required for active supervisors (enforced in UserService). UNIQUE → strict 1:1.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "rt_id", unique = true)
+    var rt: Rt? = null,
     @Column(name = "is_active", nullable = false)
     var isActive: Boolean = true,
     @Column(name = "created_at", nullable = false)

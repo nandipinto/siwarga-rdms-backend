@@ -25,6 +25,10 @@ data class LoginResponse(
     @field:Schema(example = "ADMINISTRATOR")
     val role: String,
     val username: String,
+    @field:Schema(description = "RT the supervisor is confined to; null for administrators")
+    val rtId: UUID? = null,
+    @field:Schema(description = "RT code for display; null for administrators", example = "RT 05")
+    val rtCode: String? = null,
 )
 
 @Schema(description = "Create or update an RW")
@@ -105,6 +109,8 @@ data class UserCreateRequest(
     @field:NotBlank val username: String,
     @field:NotBlank val password: String,
     @field:NotNull val role: UserRole,
+    @field:Schema(description = "RT to confine a supervisor to; required for SUPERVISOR, must be null for ADMINISTRATOR")
+    val rtId: UUID? = null,
 )
 
 @Schema(description = "Update an application user")
@@ -112,6 +118,8 @@ data class UserUpdateRequest(
     val role: UserRole? = null,
     val isActive: Boolean? = null,
     val password: String? = null,
+    @field:Schema(description = "Reassign the supervisor's RT; ignored for administrators")
+    val rtId: UUID? = null,
 )
 
 @Schema(description = "Outcome of a CSV import operation")

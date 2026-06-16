@@ -71,6 +71,11 @@ interface AppUserRepository : JpaRepository<AppUser, UUID> {
     fun findByUsername(username: String): AppUser?
 
     fun existsByUsername(username: String): Boolean
+
+    /** The (single) user holding this RT — by §3.5 invariant, an active supervisor or null. */
+    fun findByRtId(rtId: UUID): AppUser?
+
+    fun existsByRtId(rtId: UUID): Boolean
 }
 
 interface PaymentRepository : JpaRepository<Payment, UUID> {
@@ -96,6 +101,11 @@ interface PaymentRepository : JpaRepository<Payment, UUID> {
     @Query("SELECT COALESCE(SUM(p.grossAmount), 0) FROM Payment p")
     fun sumGrossAmount(): Long
 
+    @Query("SELECT COALESCE(SUM(p.grossAmount), 0) FROM Payment p WHERE p.house.rt.id = :rtId")
+    fun sumGrossAmountByRtId(
+        @Param("rtId") rtId: UUID,
+    ): Long
+
     @Query(
         """
         SELECT p FROM Payment p
@@ -105,6 +115,20 @@ interface PaymentRepository : JpaRepository<Payment, UUID> {
         """,
     )
     fun findRecent(pageable: org.springframework.data.domain.Pageable): List<Payment>
+
+    @Query(
+        """
+        SELECT p FROM Payment p
+        JOIN FETCH p.house h
+        JOIN FETCH h.rt
+        WHERE h.rt.id = :rtId
+        ORDER BY p.createdAt DESC, p.id DESC
+        """,
+    )
+    fun findRecentByRtId(
+        @Param("rtId") rtId: UUID,
+        pageable: org.springframework.data.domain.Pageable,
+    ): List<Payment>
 }
 
 interface PaymentAllocationRepository : JpaRepository<PaymentAllocation, UUID> {
@@ -163,5 +187,11 @@ interface RentalGuaranteeRefundRepository : JpaRepository<RentalGuaranteeRefund,
     ): List<RentalGuaranteeRefund>
 
     fun countByStatus(status: RefundStatus): Long
+
+    @Query("SELECT COUNT(r) FROM RentalGuaranteeRefund r WHERE r.status = :status AND r.house.rt.id = :rtId")
+    fun countByStatusAndRtId(
+        @Param("status") status: RefundStatus,
+        @Param("rtId") rtId: UUID,
+    ): Long
 }
 

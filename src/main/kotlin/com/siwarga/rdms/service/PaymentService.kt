@@ -17,6 +17,7 @@ class PaymentService(
     private val paymentRepository: PaymentRepository,
     private val appUserRepository: AppUserRepository,
     private val accountService: AccountService,
+    private val scopeService: ScopeService,
 ) {
     @Transactional
     fun create(
@@ -27,6 +28,7 @@ class PaymentService(
         username: String,
     ): PaymentView {
         val house = accountService.loadHouse(houseId)
+        scopeService.assertHouseInScope(house)
         val user =
             appUserRepository.findByUsername(username)
                 ?: throw NotFoundException("User $username not found")
@@ -53,6 +55,7 @@ class PaymentService(
         note: String?,
     ): PaymentView {
         val payment = paymentRepository.findById(id).orElseThrow { NotFoundException("Payment $id not found") }
+        scopeService.assertHouseInScope(payment.house)
         payment.paymentDate = paymentDate
         payment.grossAmount = grossAmount
         payment.note = note
@@ -64,6 +67,7 @@ class PaymentService(
     @Transactional
     fun delete(id: UUID) {
         val payment = paymentRepository.findById(id).orElseThrow { NotFoundException("Payment $id not found") }
+        scopeService.assertHouseInScope(payment.house)
         val house = payment.house
         paymentRepository.delete(payment)
         paymentRepository.flush()
@@ -73,6 +77,7 @@ class PaymentService(
     @Transactional(readOnly = true)
     fun get(id: UUID): PaymentView {
         val payment = paymentRepository.findById(id).orElseThrow { NotFoundException("Payment $id not found") }
+        scopeService.assertHouseInScope(payment.house)
         return accountService.toPaymentView(payment)
     }
 
@@ -83,5 +88,9 @@ class PaymentService(
         from: LocalDate?,
         to: LocalDate?,
         pageable: Pageable,
-    ): Page<PaymentView> = paymentRepository.search(houseId, rtId, from, to, pageable).map { accountService.toStoredView(it) }
+    ): Page<PaymentView> =
+        // Supervisor RT overrides any client-supplied rtId (spec §4.3); admin keeps it.
+        paymentRepository
+            .search(houseId, scopeService.effectiveRtId(rtId), from, to, pageable)
+            .map { accountService.toStoredView(it) }
 }
