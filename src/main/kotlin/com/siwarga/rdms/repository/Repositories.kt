@@ -30,17 +30,31 @@ interface RtRepository : JpaRepository<Rt, UUID> {
 
     fun existsByRwId(rwId: UUID): Boolean
 
-    fun findAllByRwIdOrderByRtCodeAsc(rwId: UUID): List<Rt>
+    // JOIN FETCH the rw (EAGER) so RT listings are a single query rather than N+1 per RT.
+    @Query("SELECT r FROM Rt r JOIN FETCH r.rw WHERE r.rw.id = :rwId ORDER BY r.rtCode ASC")
+    fun findAllByRwIdOrderByRtCodeAsc(
+        @Param("rwId") rwId: UUID,
+    ): List<Rt>
+
+    @Query("SELECT r FROM Rt r JOIN FETCH r.rw ORDER BY r.rtCode ASC")
+    fun findAllWithRw(): List<Rt>
 }
 
 interface HouseRepository : JpaRepository<House, UUID> {
+    // JOIN FETCH the rt (and its rw, also EAGER) so a house listing is one query instead of N+1
+    // secondary selects per house — this is the hot path for the house list, dashboard, and reports.
     @Query(
-        "SELECT h FROM House h WHERE h.rt.id = :rtId ORDER BY h.rt.rtCode ASC, h.blockCode ASC, h.houseNumber ASC",
+        "SELECT h FROM House h JOIN FETCH h.rt rt JOIN FETCH rt.rw " +
+            "WHERE rt.id = :rtId ORDER BY rt.rtCode ASC, h.blockCode ASC, h.houseNumber ASC",
     )
     fun findAllByRtId(
         @Param("rtId") rtId: UUID,
     ): List<House>
 
+    @Query(
+        "SELECT h FROM House h JOIN FETCH h.rt rt JOIN FETCH rt.rw " +
+            "ORDER BY rt.rtCode ASC, h.blockCode ASC, h.houseNumber ASC",
+    )
     fun findAllByOrderByRtRtCodeAsc(): List<House>
 
     fun findByRtRtCodeAndBlockCodeAndHouseNumber(
@@ -69,6 +83,10 @@ interface HouseRepository : JpaRepository<House, UUID> {
 
 interface AppUserRepository : JpaRepository<AppUser, UUID> {
     fun findByUsername(username: String): AppUser?
+
+    // LEFT JOIN FETCH (rt is nullable for admins) the rt and its rw so the user list is one query.
+    @Query("SELECT u FROM AppUser u LEFT JOIN FETCH u.rt rt LEFT JOIN FETCH rt.rw ORDER BY u.username ASC")
+    fun findAllWithRt(): List<AppUser>
 
     fun existsByUsername(username: String): Boolean
 
@@ -110,7 +128,8 @@ interface PaymentRepository : JpaRepository<Payment, UUID> {
         """
         SELECT p FROM Payment p
         JOIN FETCH p.house h
-        JOIN FETCH h.rt
+        JOIN FETCH h.rt rt
+        JOIN FETCH rt.rw
         ORDER BY p.createdAt DESC, p.id DESC
         """,
     )
@@ -120,8 +139,9 @@ interface PaymentRepository : JpaRepository<Payment, UUID> {
         """
         SELECT p FROM Payment p
         JOIN FETCH p.house h
-        JOIN FETCH h.rt
-        WHERE h.rt.id = :rtId
+        JOIN FETCH h.rt rt
+        JOIN FETCH rt.rw
+        WHERE rt.id = :rtId
         ORDER BY p.createdAt DESC, p.id DESC
         """,
     )
@@ -164,6 +184,13 @@ interface RentalGuaranteeRefundRepository : JpaRepository<RentalGuaranteeRefund,
     fun findByPaymentId(paymentId: UUID): RentalGuaranteeRefund?
 
     fun existsByPaymentId(paymentId: UUID): Boolean
+
+    /** Write-lock the refund row so concurrent complete/cancel serialize (prevents double-completion). */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM RentalGuaranteeRefund r WHERE r.id = :id")
+    fun findByIdForUpdate(
+        @Param("id") id: UUID,
+    ): RentalGuaranteeRefund?
 
     @Query(
         """

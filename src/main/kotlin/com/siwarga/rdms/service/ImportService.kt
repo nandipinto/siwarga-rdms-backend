@@ -10,12 +10,20 @@ import java.io.InputStream
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
 import java.time.LocalDate
+import java.util.UUID
 
 data class ImportOutcome(
     val totalRows: Int,
     val successCount: Int,
     val errorCount: Int,
     val errors: List<String>,
+)
+
+/** A payment import row whose house has been resolved, awaiting per-house batch insert. */
+private data class ResolvedPaymentRow(
+    val line: Int,
+    val houseId: UUID,
+    val draft: PaymentDraft,
 )
 
 /**
@@ -114,10 +122,14 @@ class ImportService(
     ): ImportOutcome {
         val rows = parse(input, expectedCols = 5, headerFirstField = "block_code")
         var ok = 0
-        val errors = mutableListOf<String>()
+        // Collected with line numbers so the final error list stays in row order despite per-house batching.
+        val errors = sortedMapOf<Int, String>()
+
+        // Phase 1: parse each row and resolve its house. Parse/lookup failures are per-row errors.
+        val resolved = mutableListOf<ResolvedPaymentRow>()
         rows.forEach { parsed ->
             if (parsed.columnCountError != null) {
-                errors += parsed.columnCountError
+                errors[parsed.line] = parsed.columnCountError
                 return@forEach
             }
             try {
@@ -135,13 +147,25 @@ class ImportService(
                         matches.size > 1 -> throw IllegalArgumentException("Ambiguous house $blockCode/$houseNumber across RTs")
                         else -> matches.first()
                     }
-                paymentService.create(house.id, paymentDate, grossAmount, note, username)
-                ok++
+                resolved += ResolvedPaymentRow(parsed.line, house.id, PaymentDraft(paymentDate, grossAmount, note))
             } catch (e: Exception) {
-                errors += "Row ${parsed.line}: ${e.message}"
+                errors[parsed.line] = "Row ${parsed.line}: ${e.message}"
             }
         }
-        return ImportOutcome(rows.size, ok, errors.size, errors)
+
+        // Phase 2: one batch + single account recompute per house (avoids the O(n²) per-row recompute).
+        resolved.groupBy { it.houseId }.forEach { (houseId, group) ->
+            try {
+                paymentService.createBatchForHouse(houseId, group.map { it.draft }, username).forEach { result ->
+                    val line = group[result.index].line
+                    if (result.error == null) ok++ else errors[line] = "Row $line: ${result.error}"
+                }
+            } catch (e: Exception) {
+                // An unexpected failure rolls back this house's batch only; other houses already committed.
+                group.forEach { errors[it.line] = "Row ${it.line}: ${e.message}" }
+            }
+        }
+        return ImportOutcome(rows.size, ok, errors.size, errors.values.toList())
     }
 
     fun importRentalGuaranteePayments(
@@ -192,7 +216,7 @@ class ImportService(
         expectedCols: Int,
         headerFirstField: String,
     ): List<ParsedCsvRow> {
-        val bytes = input.readBytes()
+        val bytes = input.use { it.readBytes() }
         val text = String(bytes, StandardCharsets.UTF_8)
         val delimiter = if (text.lineSequence().firstOrNull()?.contains(';') == true) ';' else ','
 

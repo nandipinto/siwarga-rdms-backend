@@ -19,7 +19,7 @@ class UserService(
     private val rtRepository: RtRepository,
     private val passwordEncoder: PasswordEncoder,
 ) {
-    fun list(): List<AppUser> = appUserRepository.findAll()
+    fun list(): List<AppUser> = appUserRepository.findAllWithRt()
 
     fun get(id: UUID): AppUser = appUserRepository.findById(id).orElseThrow { NotFoundException("User $id not found") }
 

@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.PrePersist
 import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -35,6 +36,9 @@ class Rw(
     var createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) {
     @PrePersist fun onCreate() {
         val now = Instant.now()
@@ -63,6 +67,9 @@ class Rt(
     var createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) {
     @PrePersist fun onCreate() {
         val now = Instant.now()
@@ -114,6 +121,9 @@ class House(
     var createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) {
     @PrePersist fun onCreate() {
         val now = Instant.now()
@@ -149,6 +159,9 @@ class AppUser(
     var createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) {
     @PrePersist fun onCreate() {
         val now = Instant.now()
@@ -182,6 +195,9 @@ class Payment(
     var createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) {
     @PrePersist fun onCreate() {
         val now = Instant.now()
@@ -246,6 +262,9 @@ class RentalGuaranteePayment(
     var createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) {
     @PrePersist fun onCreate() {
         val now = Instant.now()
@@ -300,6 +319,9 @@ class RentalGuaranteeRefund(
     var completedAt: Instant? = null,
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) {
     @PrePersist fun onCreate() {
         val now = Instant.now()

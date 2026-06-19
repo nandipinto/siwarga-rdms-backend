@@ -22,7 +22,7 @@ class RtService(
         if (rwId != null) {
             rtRepository.findAllByRwIdOrderByRtCodeAsc(rwId)
         } else {
-            rtRepository.findAll()
+            rtRepository.findAllWithRw()
         }
 
     fun get(id: UUID): Rt = rtRepository.findById(id).orElseThrow { NotFoundException("RT $id not found") }

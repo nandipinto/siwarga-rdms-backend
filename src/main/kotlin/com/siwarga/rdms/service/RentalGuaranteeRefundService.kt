@@ -51,7 +51,9 @@ class RentalGuaranteeRefundService(
         note: String?,
         completedBy: AppUser,
     ): RentalGuaranteeRefund {
-        val refund = refundRepository.findById(id).orElseThrow { NotFoundException("Refund $id not found") }
+        // Write-lock the row first: two concurrent completions then serialize, and the second
+        // re-reads status = COMPLETED and is rejected below (no double-completion / double refund number).
+        val refund = refundRepository.findByIdForUpdate(id) ?: throw NotFoundException("Refund $id not found")
         scopeService.assertHouseInScope(refund.house)
         if (refund.status != RefundStatus.PENDING) {
             throw BadRequestException("Only PENDING refunds can be completed")
@@ -69,7 +71,7 @@ class RentalGuaranteeRefundService(
 
     @Transactional
     fun cancel(id: UUID) {
-        val refund = refundRepository.findById(id).orElseThrow { NotFoundException("Refund $id not found") }
+        val refund = refundRepository.findByIdForUpdate(id) ?: throw NotFoundException("Refund $id not found")
         scopeService.assertHouseInScope(refund.house)
         if (refund.status != RefundStatus.PENDING) {
             throw BadRequestException("Only PENDING refunds can be cancelled")
