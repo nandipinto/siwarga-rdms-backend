@@ -34,7 +34,9 @@ class RtService(
         description: String?,
     ): Rt {
         val rw = rwRepository.findById(rwId).orElseThrow { NotFoundException("RW $rwId not found") }
-        if (rtRepository.existsByRtCode(rtCode)) throw ConflictException("RT code '$rtCode' already exists")
+        if (rtRepository.existsByRwIdAndRtCode(rwId, rtCode)) {
+            throw ConflictException("RT code '$rtCode' already exists in this RW")
+        }
         return rtRepository.save(Rt(rw = rw, rtCode = rtCode, description = description))
     }
 
@@ -47,8 +49,10 @@ class RtService(
     ): Rt {
         val rt = get(id)
         val rw = rwRepository.findById(rwId).orElseThrow { NotFoundException("RW $rwId not found") }
-        if (rt.rtCode != rtCode && rtRepository.existsByRtCode(rtCode)) {
-            throw ConflictException("RT code '$rtCode' already exists")
+        // Only re-check when the (rw, code) pair actually changes; the constraint is RW-scoped.
+        val pairChanged = rt.rw.id != rwId || rt.rtCode != rtCode
+        if (pairChanged && rtRepository.existsByRwIdAndRtCode(rwId, rtCode)) {
+            throw ConflictException("RT code '$rtCode' already exists in this RW")
         }
         rt.rw = rw
         rt.rtCode = rtCode

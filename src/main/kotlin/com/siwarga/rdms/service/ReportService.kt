@@ -97,8 +97,12 @@ class ReportService(
                 .forEach { paidCount.merge(it, 1, Int::plus) }
         }
 
+        // Union all period keys: a payment can be allocated to a period with no expected dues
+        // (e.g. allocated before the house's active date), and iterating expected.keys alone
+        // would silently drop those collections and understate totals.
+        val periods = (expected.keys + collected.keys + discount.keys + paidCount.keys).toSortedSet()
         val rows =
-            expected.keys.sorted().map { ym ->
+            periods.map { ym ->
                 val exp = expected[ym] ?: 0
                 val cash = collected[ym] ?: 0
                 val disc = discount[ym] ?: 0

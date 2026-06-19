@@ -3,6 +3,7 @@ package com.siwarga.rdms.service
 import com.siwarga.rdms.config.RentalGuaranteeProperties
 import com.siwarga.rdms.domain.House
 import com.siwarga.rdms.domain.OccupancyStatus
+import com.siwarga.rdms.domain.Rt
 import com.siwarga.rdms.errors.NotFoundException
 import com.siwarga.rdms.repository.AppUserRepository
 import com.siwarga.rdms.repository.HouseRepository
@@ -94,12 +95,11 @@ class HouseService(
 
     @Transactional
     fun upsertFromImport(input: HouseImportInput): House {
-        val rt =
-            rtRepository.findByRtCode(input.rtCode)
-                ?: throw IllegalArgumentException("Unknown RT code '${input.rtCode}'")
+        val rt = resolveImportRt(input.rwCode, input.rtCode)
+        // Key the existing-house lookup on the resolved rt.id (uq_house_rt_block_number), not rt_code.
         val existing =
-            houseRepository.findByRtRtCodeAndBlockCodeAndHouseNumber(
-                input.rtCode,
+            houseRepository.findByRtIdAndBlockCodeAndHouseNumber(
+                rt.id,
                 input.blockCode,
                 input.houseNumber,
             )
@@ -123,6 +123,30 @@ class HouseService(
             update(existing.id, req, input.actorUsername)
         } else {
             create(req)
+        }
+    }
+
+    /**
+     * Resolves the target RT for an import row. rt_code is unique only within an RW (V7), so:
+     * an explicit rw_code resolves the pair directly; otherwise a lone match is used and a code
+     * shared across RWs is rejected as ambiguous (mirrors the payment-import block/number rule).
+     */
+    private fun resolveImportRt(
+        rwCode: String?,
+        rtCode: String,
+    ): Rt {
+        if (rwCode != null) {
+            return rtRepository.findByRwRwCodeAndRtCode(rwCode, rtCode)
+                ?: throw IllegalArgumentException("Unknown RT code '$rtCode' in RW '$rwCode'")
+        }
+        val matches = rtRepository.findAllByRtCode(rtCode)
+        return when {
+            matches.isEmpty() -> throw IllegalArgumentException("Unknown RT code '$rtCode'")
+            matches.size > 1 ->
+                throw IllegalArgumentException(
+                    "Ambiguous RT code '$rtCode' across multiple RWs; add an rw_code column to disambiguate",
+                )
+            else -> matches.first()
         }
     }
 
@@ -175,6 +199,8 @@ data class HouseDetail(
 
 data class HouseImportInput(
     val rtCode: String,
+    // Optional: disambiguates rt_code when it is reused across RWs (null for single-RW imports).
+    val rwCode: String?,
     val blockCode: String,
     val houseNumber: String,
     val ownerName: String,

@@ -19,15 +19,16 @@ data class PenaltyItem(
 
 data class PenaltyResult(
     val total: Long,
-    val items: List<com.siwarga.rdms.calc.PenaltyItem>,
+    val items: List<PenaltyItem>,
 )
 
 /**
- * Deterministic penalty calculator (spec §6.3 — adopted as canonical over the §2.4 wording).
+ * Deterministic penalty calculator (spec §6.3, ADR-0001).
  *
- * A month has "payment activity" if any payment was recorded in that calendar month; such a
- * month resets the consecutive-non-payment counter. For each maximal gap of `G` consecutive
- * months without activity:
+ * A month is in [onTimeCoveredMonths] if its dues were covered *on time* — by a payment dated in
+ * that month or earlier (see AllocationEngine). Such a month is not delinquent and breaks the run.
+ * A month covered only retroactively by a later catch-up payment is NOT on-time, so it stays in the
+ * gap and any penalty it triggered stands. For each maximal gap of `G` consecutive delinquent months:
  *
  *   penalty = floor(G / 12) * 120_000  +  floor((G mod 12) / 6) * 60_000
  *
@@ -38,25 +39,25 @@ object PenaltyCalculator {
     fun compute(
         activeDate: YearMonth,
         refMonth: YearMonth,
-        activityMonths: Set<YearMonth>,
+        onTimeCoveredMonths: Set<YearMonth>,
     ): PenaltyResult {
         if (refMonth < activeDate) {
             return PenaltyResult(0, emptyList())
         }
 
-        val items = mutableListOf<com.siwarga.rdms.calc.PenaltyItem>()
+        val items = mutableListOf<PenaltyItem>()
         var total = 0L
 
         var cursor = activeDate
         while (cursor <= refMonth) {
-            if (cursor in activityMonths) {
+            if (cursor in onTimeCoveredMonths) {
                 cursor = cursor.plusMonths(1)
                 continue
             }
-            // Start of a gap; extend while months have no activity.
+            // Start of a gap; extend while months were not covered on time.
             val gapStart = cursor
             var gapLen = 0
-            while (cursor <= refMonth && cursor !in activityMonths) {
+            while (cursor <= refMonth && cursor !in onTimeCoveredMonths) {
                 gapLen++
                 cursor = cursor.plusMonths(1)
             }

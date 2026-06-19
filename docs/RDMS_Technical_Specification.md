@@ -120,25 +120,25 @@ Discounts are applied per qualifying block:
 
 ### 2.4 Penalty Rules
 
-Penalties are assessed automatically based on **consecutive months without any payment**. The threshold counter resets whenever a payment (of any amount) is recorded.
+Penalties are assessed automatically based on **consecutive months left uncovered**. A month breaks the run only when its dues are covered **on time** — by a payment dated in that month or earlier. Merely recording a payment does not reset the counter, and clearing a back-month retroactively does not erase a penalty it already triggered (see §6.3 and ADR-0001).
 
-| Consecutive Non-Payment Duration | Penalty Amount | Granularity |
+| Consecutive Uncovered Duration | Penalty Amount | Granularity |
 |---|---|---|
 | 6 consecutive months | Rp 60,000 | Per 6-month multiple |
 | 12 consecutive months | Rp 120,000 | Per 12-month multiple |
 
 **Penalty accumulation logic:**
 
-- Months 1–5 without payment: no penalty (arrears accumulate only).
-- Month 6 without payment: first Rp 60,000 penalty added.
-- Month 12 without payment: Rp 120,000 penalty added for the 12-month threshold.
+- Months 1–5 uncovered: no penalty (arrears accumulate only).
+- Month 6 uncovered: first Rp 60,000 penalty added.
+- Month 12 uncovered: Rp 120,000 penalty added for the 12-month threshold.
 - The 12-month penalty supersedes the 6-month penalties for the same period to avoid double-counting — implement one canonical rule.
 
 > **IMPLEMENTATION NOTE:** Define a deterministic penalty calculation function: given a start date, end date, and payment history, it returns the total penalty owed. Both arrears and penalties are included in the "outstanding balance" that triggers automatic settlement on each payment.
 
-> **CANONICAL RULE:** The algorithm in **§6.3 is canonical** and supersedes any looser reading of this section. A month carries "payment activity" if any payment was recorded in it; such a month resets the consecutive-non-payment counter. The 12-month tier supersedes the 6-month tier within a gap purely as a consequence of the §6.3 formula (the 6-month term sees only `G mod 12`), so there is no double counting.
+> **CANONICAL RULE (ADR-0001):** The algorithm in **§6.3 is canonical** and supersedes any looser reading of this section. A month is **covered on time** if a payment dated in that month or earlier extended dues coverage to reach it (monthly granularity, no within-month grace); such a month breaks the consecutive-uncovered run. A month covered only retroactively by a later catch-up payment is *not* on-time, so its delinquency — and any penalty it triggered — stands. The 12-month tier supersedes the 6-month tier within a gap purely as a consequence of the §6.3 formula (the 6-month term sees only `G mod 12`), so there is no double counting. **This corrects an earlier rule that keyed off "payment activity" (any payment recorded in a calendar month), which wrongly penalized prepayers and let drip-payers escape.**
 
-> **NO PENALTY LEDGER:** Penalties are **not persisted**. They are a pure recomputed function of `(active_date, reference month, payment-activity months)`, re-derived on every read and on every payment create/update/delete. Penalties settle **partially / as a lump** against the outstanding balance (`pay = min(remaining, outstanding_penalty)`); available cash is never left idle as a Deposit while a penalty stands unpaid.
+> **NO PENALTY LEDGER:** Penalties are **not persisted**. They are a pure recomputed function of `(active_date, reference month, on-time-covered months)`, re-derived on every read and on every payment create/update/delete. Penalties settle **partially / as a lump** against the outstanding balance (`pay = min(remaining, outstanding_penalty)`); available cash is never left idle as a Deposit while a penalty stands unpaid.
 
 ---
 
@@ -871,16 +871,18 @@ For a given house and reference date, the system must derive:
 
 ### 6.3 Penalty Calculation Algorithm
 
-This is the **canonical** penalty rule referenced by §2.4. It is a pure function, recomputed on demand and never persisted. Given the payment history of a house:
+This is the **canonical** penalty rule referenced by §2.4 (see ADR-0001). It is a pure function, recomputed on demand and never persisted. Given the payment history of a house:
 
-1. Build a sorted timeline of all months from `active_date` to today.
-2. Identify consecutive sequences of months with no payment activity.
+1. Replaying payments chronologically, build the set of **on-time-covered** months: when a payment dated in month `pp` advances the coverage frontier to `nextUnpaid`, the months `[pp .. nextUnpaid − 1]` are covered on time. Back-months a payment clears retroactively (those earlier than `pp`) are *not* on-time.
+2. Build a sorted timeline of all months from `active_date` to today, and identify consecutive sequences of months **not** covered on time.
 3. For each gap sequence of length `G` months:
    - Add `floor(G / 12) × Rp 120,000` penalties.
    - Add `floor((G mod 12) / 6) × Rp 60,000` penalties.
 4. Sum all penalty amounts → `total_penalties_idr`.
 
-> **EXAMPLE:** A house with no payment for **15 consecutive months**:
+Because retroactive coverage never enters the on-time set, a penalty once triggered remains even after the resident catches up (delinquency is measured as-of-each-month). Conversely, a single prepayment that covers many forward months marks all of them on time, so prepaying is never penalized.
+
+> **EXAMPLE:** A house uncovered for **15 consecutive months**:
 > `floor(15/12) = 1 × Rp 120,000` + `floor(3/6) = 0 × Rp 60,000` = **Rp 120,000** total penalty.
 
 ---

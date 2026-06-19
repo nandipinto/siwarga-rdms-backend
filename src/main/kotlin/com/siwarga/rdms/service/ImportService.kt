@@ -86,10 +86,13 @@ class ImportService(
                         ?.trim()
                         ?.takeIf { it.isNotEmpty() }
                         ?.toLong()
+                // Optional trailing column: disambiguate rt_code reused across RWs.
+                val rwCode = cols.getOrNull(13)?.trim()?.takeIf { it.isNotEmpty() }
 
                 houseService.upsertFromImport(
                     HouseImportInput(
                         rtCode = rtCode,
+                        rwCode = rwCode,
                         blockCode = blockCode,
                         houseNumber = houseNumber,
                         ownerName = ownerName,

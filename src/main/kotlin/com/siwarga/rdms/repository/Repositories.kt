@@ -24,9 +24,20 @@ interface RwRepository : JpaRepository<Rw, UUID> {
 }
 
 interface RtRepository : JpaRepository<Rt, UUID> {
-    fun findByRtCode(rtCode: String): Rt?
+    // rt_code is unique only within an RW (V7 uq_rt_rw_code), so a code may match several RTs.
+    fun findAllByRtCode(rtCode: String): List<Rt>
 
-    fun existsByRtCode(rtCode: String): Boolean
+    // Resolves an RT unambiguously when the import row supplies an rw_code.
+    fun findByRwRwCodeAndRtCode(
+        rwCode: String,
+        rtCode: String,
+    ): Rt?
+
+    // RT codes are unique within an RW (V7 uq_rt_rw_code), so dedup checks must be RW-scoped.
+    fun existsByRwIdAndRtCode(
+        rwId: UUID,
+        rtCode: String,
+    ): Boolean
 
     fun existsByRwId(rwId: UUID): Boolean
 
@@ -57,8 +68,9 @@ interface HouseRepository : JpaRepository<House, UUID> {
     )
     fun findAllByOrderByRtRtCodeAsc(): List<House>
 
-    fun findByRtRtCodeAndBlockCodeAndHouseNumber(
-        rtCode: String,
+    // Keyed on the resolved rt.id, matching the true uniqueness key uq_house_rt_block_number.
+    fun findByRtIdAndBlockCodeAndHouseNumber(
+        rtId: UUID,
         blockCode: String,
         houseNumber: String,
     ): House?

@@ -149,6 +149,44 @@ class AllocationEngineTest {
     }
 
     @Test
+    fun `prepaying many months in one payment is never penalized (ADR-0001)`() {
+        // Active Feb 2026. A SINGLE payment in Feb 2026 prepays through Dec 2026 (11 covered months
+        // beyond the payment month). Only Feb has a payment row, yet every month is covered on time,
+        // so there is NO penalty. The old payment-activity rule would have seen Mar..Dec as a
+        // 10-month non-payment gap and wrongly assessed 60k.
+        val res =
+            AllocationEngine.replay(
+                ym(2026, 2),
+                listOf(pay("2026-02-01", 1_320_000)),
+                ym(2026, 12),
+            )
+        assertEquals(0, res.account.penaltyTotal)
+        assertTrue(res.account.penalties.isEmpty())
+        assertEquals(0, res.account.arrearsTotal)
+        assertEquals(ym(2026, 12), res.account.coveredThrough)
+    }
+
+    @Test
+    fun `a penalty triggered before catch-up still stands after the lump payment (ADR-0001)`() {
+        // Active Jan 2024, silent until a single lump in Jan 2025 clears all 13 months of arrears.
+        // Jan..Dec 2024 were uncovered as they elapsed (a 12-month gap), so the 120k penalty is
+        // assessed and settled even though the account ends fully caught up — penalties do not
+        // vanish on retroactive coverage (decision B: coverage as-of-date).
+        val res =
+            AllocationEngine.replay(
+                ym(2024, 1),
+                listOf(pay("2025-01-01", 1_420_000)), // 13 * 100k arrears + 120k penalty
+                ym(2025, 1),
+            )
+        val r = res.perPayment.single()
+        assertEquals(13, duesLines(r).size)
+        assertEquals(120_000, r.lines.single { it.type == AllocationType.PENALTY }.amount)
+        assertEquals(120_000, res.account.penalties.sumOf { it.amount }) // assessed, stuck
+        assertEquals(0, res.account.penaltyTotal) // settled by the lump
+        assertEquals(0, res.account.arrearsTotal)
+    }
+
+    @Test
     fun `unpaid account accrues arrears and penalty (15 months)`() {
         val res = AllocationEngine.replay(ym(2024, 1), emptyList(), ym(2025, 3))
         // 15 months all at legacy rate

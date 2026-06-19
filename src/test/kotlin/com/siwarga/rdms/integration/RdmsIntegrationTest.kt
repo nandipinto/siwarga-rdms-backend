@@ -336,6 +336,77 @@ class RdmsIntegrationTest {
         assertTrue((res.body!!["errors"] as List<*>).isNotEmpty())
     }
 
+    private fun importHousesCsv(
+        token: String,
+        csv: String,
+    ): Map<*, *> {
+        val mpHeaders = HttpHeaders()
+        mpHeaders.setBearerAuth(token)
+        mpHeaders.contentType = MediaType.MULTIPART_FORM_DATA
+        val body = org.springframework.util.LinkedMultiValueMap<String, Any>()
+        body.add(
+            "file",
+            object : org.springframework.core.io.ByteArrayResource(csv.toByteArray()) {
+                override fun getFilename() = "houses.csv"
+            },
+        )
+        val res =
+            rest.exchange(
+                "/api/v1/houses/import",
+                HttpMethod.POST,
+                HttpEntity(body, mpHeaders),
+                Map::class.java,
+            )
+        assertEquals(HttpStatus.ACCEPTED, res.statusCode)
+        return res.body!!
+    }
+
+    @Test
+    fun `house import disambiguates a reused rt_code by rw_code`() {
+        val adminToken = login("admin", "admin123")
+        // Two RWs each owning an RT with the SAME code — only legal since V7 made rt_code unique per-RW.
+        val rwA = createRw(adminToken, "RW DUP A")
+        val rwB = createRw(adminToken, "RW DUP B")
+        val rtA = createRt(adminToken, rwA, "RT DUP")
+        createRt(adminToken, rwB, "RT DUP")
+
+        // Without rw_code the code is ambiguous → the row is rejected, not silently misrouted.
+        val ambiguous =
+            importHousesCsv(
+                adminToken,
+                """
+                rt_code;block_code;house_number;owner_name;email;phone;active_date;status;tenant_name;tenant_email;tenant_phone;lease_duration_months;rental_guarantee_amount_idr
+                RT DUP;A;1;Siti;siti@example.com;0812;2024-01-01;;;;;;
+                """.trimIndent(),
+            )
+        assertEquals(0, (ambiguous["successCount"] as Number).toInt())
+        assertEquals(1, (ambiguous["errorCount"] as Number).toInt())
+        assertTrue((ambiguous["errors"] as List<*>).first().toString().contains("Ambiguous"))
+
+        // With a trailing rw_code column the row resolves to RW DUP A's RT.
+        val resolved =
+            importHousesCsv(
+                adminToken,
+                """
+                rt_code;block_code;house_number;owner_name;email;phone;active_date;status;tenant_name;tenant_email;tenant_phone;lease_duration_months;rental_guarantee_amount_idr;rw_code
+                RT DUP;A;1;Siti;siti@example.com;0812;2024-01-01;;;;;;;RW DUP A
+                """.trimIndent(),
+            )
+        assertEquals(1, (resolved["successCount"] as Number).toInt())
+        assertEquals(0, (resolved["errorCount"] as Number).toInt())
+
+        // The house landed under RW DUP A's RT, not RW DUP B's.
+        val housesInA =
+            rest.exchange(
+                "/api/v1/houses?rtId=$rtA",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers(adminToken)),
+                List::class.java,
+            )
+        assertEquals(HttpStatus.OK, housesInA.statusCode)
+        assertEquals(1, housesInA.body!!.size)
+    }
+
     @Test
     fun `ownership change preserves the ledger and houses cannot be deleted`() {
         val adminToken = login("admin", "admin123")

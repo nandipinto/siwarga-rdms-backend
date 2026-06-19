@@ -6,6 +6,7 @@ import com.siwarga.rdms.errors.ConflictException
 import com.siwarga.rdms.errors.ForbiddenException
 import com.siwarga.rdms.errors.NotFoundException
 import org.slf4j.LoggerFactory
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -51,6 +52,11 @@ class GlobalExceptionHandler {
         detail.setProperty("errors", fieldErrors)
         return detail
     }
+
+    /** Concurrent read-modify-write detected by @Version optimistic locking — client should retry. */
+    @ExceptionHandler(OptimisticLockingFailureException::class)
+    fun handleOptimisticLock(ex: OptimisticLockingFailureException): ProblemDetail =
+        problem(HttpStatus.CONFLICT, "Conflict", "The resource was modified concurrently; please retry")
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
     fun handleMethodNotSupported(ex: HttpRequestMethodNotSupportedException): ProblemDetail =

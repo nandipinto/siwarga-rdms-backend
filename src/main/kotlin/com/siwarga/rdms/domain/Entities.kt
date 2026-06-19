@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.PrePersist
 import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import jakarta.persistence.Version
 import java.time.Instant
 import java.time.LocalDate
@@ -52,14 +53,18 @@ class Rw(
 }
 
 @Entity
-@Table(name = "rt")
+@Table(
+    name = "rt",
+    // RT codes are unique within an RW, not globally (matches V7 constraint uq_rt_rw_code).
+    uniqueConstraints = [UniqueConstraint(name = "uq_rt_rw_code", columnNames = ["rw_id", "rt_code"])],
+)
 class Rt(
     @Id
     var id: UUID = UUID.randomUUID(),
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "rw_id", nullable = false)
     var rw: Rw,
-    @Column(name = "rt_code", nullable = false, unique = true, length = 10)
+    @Column(name = "rt_code", nullable = false, length = 10)
     var rtCode: String,
     @Column(name = "description")
     var description: String? = null,
