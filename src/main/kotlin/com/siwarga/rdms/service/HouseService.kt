@@ -127,28 +127,15 @@ class HouseService(
     }
 
     /**
-     * Resolves the target RT for an import row. rt_code is unique only within an RW (V7), so:
-     * an explicit rw_code resolves the pair directly; otherwise a lone match is used and a code
-     * shared across RWs is rejected as ambiguous (mirrors the payment-import block/number rule).
+     * Resolves the target RT for an import row. rt_code is unique only within an RW (V7), so the
+     * rw_code/rt_code pair resolves the RT directly.
      */
     private fun resolveImportRt(
-        rwCode: String?,
+        rwCode: String,
         rtCode: String,
-    ): Rt {
-        if (rwCode != null) {
-            return rtRepository.findByRwRwCodeAndRtCode(rwCode, rtCode)
-                ?: throw IllegalArgumentException("Unknown RT code '$rtCode' in RW '$rwCode'")
-        }
-        val matches = rtRepository.findAllByRtCode(rtCode)
-        return when {
-            matches.isEmpty() -> throw IllegalArgumentException("Unknown RT code '$rtCode'")
-            matches.size > 1 ->
-                throw IllegalArgumentException(
-                    "Ambiguous RT code '$rtCode' across multiple RWs; add an rw_code column to disambiguate",
-                )
-            else -> matches.first()
-        }
-    }
+    ): Rt =
+        rtRepository.findByRwRwCodeAndRtCode(rwCode, rtCode)
+            ?: throw IllegalArgumentException("Unknown RT code '$rtCode' in RW '$rwCode'")
 
     private fun resolveOccupancy(
         old: HouseOccupancyState?,
@@ -199,8 +186,7 @@ data class HouseDetail(
 
 data class HouseImportInput(
     val rtCode: String,
-    // Optional: disambiguates rt_code when it is reused across RWs (null for single-RW imports).
-    val rwCode: String?,
+    val rwCode: String,
     val blockCode: String,
     val houseNumber: String,
     val ownerName: String,

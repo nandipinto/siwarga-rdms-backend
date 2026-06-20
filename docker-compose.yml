@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: siwarga
       POSTGRES_USER: siwarga
-      POSTGRES_PASSWORD: siwarga
+      POSTGRES_PASSWORD: Rahas1ad0nk!
     ports:
       - "5432:5432"
     volumes:
@@ -23,7 +23,7 @@ services:
 #      - "8080:8080"
 #    environment:
 #      DB_USER: siwarga
-#      DB_PASS: siwarga
+#      DB_PASS: Rahas1ad0nk!
 #      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/siwarga
 #    depends_on:
 #      db:

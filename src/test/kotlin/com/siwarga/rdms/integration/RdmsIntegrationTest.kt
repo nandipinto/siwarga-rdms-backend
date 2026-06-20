@@ -306,9 +306,9 @@ class RdmsIntegrationTest {
 
         val csv =
             """
-            rt_code;block_code;house_number;owner_name;email;phone;active_date;status;tenant_name;tenant_email;tenant_phone;lease_duration_months;rental_guarantee_amount_idr
-            RT 02;A;1;Siti;siti@example.com;0812;2024-01-01;;;;;;
-            RT 99;B;2;Ghost;ghost@example.com;0813;2024-01-01;;;;;;
+            rw_code;rt_code;block_code;house_number;owner_name;email;phone;active_date;status;tenant_name;tenant_email;tenant_phone;lease_duration_months;rental_guarantee_amount_idr
+            RW 02;RT 02;A;1;Siti;siti@example.com;0812;2024-01-01;;;;;;
+            RW 02;RT 99;B;2;Ghost;ghost@example.com;0813;2024-01-01;;;;;;
             """.trimIndent()
 
         val mpHeaders = HttpHeaders()
@@ -370,30 +370,20 @@ class RdmsIntegrationTest {
         val rtA = createRt(adminToken, rwA, "RT DUP")
         createRt(adminToken, rwB, "RT DUP")
 
-        // Without rw_code the code is ambiguous → the row is rejected, not silently misrouted.
-        val ambiguous =
-            importHousesCsv(
-                adminToken,
-                """
-                rt_code;block_code;house_number;owner_name;email;phone;active_date;status;tenant_name;tenant_email;tenant_phone;lease_duration_months;rental_guarantee_amount_idr
-                RT DUP;A;1;Siti;siti@example.com;0812;2024-01-01;;;;;;
-                """.trimIndent(),
-            )
-        assertEquals(0, (ambiguous["successCount"] as Number).toInt())
-        assertEquals(1, (ambiguous["errorCount"] as Number).toInt())
-        assertTrue((ambiguous["errors"] as List<*>).first().toString().contains("Ambiguous"))
-
-        // With a trailing rw_code column the row resolves to RW DUP A's RT.
+        // The required leading rw_code column resolves the reused rt_code to exactly one RT; a row
+        // whose rw_code/rt_code pair is unknown is rejected rather than silently misrouted.
         val resolved =
             importHousesCsv(
                 adminToken,
                 """
-                rt_code;block_code;house_number;owner_name;email;phone;active_date;status;tenant_name;tenant_email;tenant_phone;lease_duration_months;rental_guarantee_amount_idr;rw_code
-                RT DUP;A;1;Siti;siti@example.com;0812;2024-01-01;;;;;;;RW DUP A
+                rw_code;rt_code;block_code;house_number;owner_name;email;phone;active_date;status;tenant_name;tenant_email;tenant_phone;lease_duration_months;rental_guarantee_amount_idr
+                RW DUP A;RT DUP;A;1;Siti;siti@example.com;0812;2024-01-01;;;;;;
+                RW MISSING;RT DUP;B;2;Budi;budi@example.com;0813;2024-01-01;;;;;;
                 """.trimIndent(),
             )
         assertEquals(1, (resolved["successCount"] as Number).toInt())
-        assertEquals(0, (resolved["errorCount"] as Number).toInt())
+        assertEquals(1, (resolved["errorCount"] as Number).toInt())
+        assertTrue((resolved["errors"] as List<*>).first().toString().contains("Unknown RT"))
 
         // The house landed under RW DUP A's RT, not RW DUP B's.
         val housesInA =
