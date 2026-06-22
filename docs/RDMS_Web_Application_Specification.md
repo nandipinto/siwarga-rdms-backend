@@ -1,10 +1,10 @@
 # Resident Dues Management System — Web Application Specification
 
-> **Document Status:** Draft v1.2
+> **Document Status:** Draft v1.3
 > **Prepared for:** AI Coding Agents / Frontend Developers
 > **Effective Date:** 2026-06-13
-> **Last Updated:** 2026-06-15
-> **Companion Document:** [RDMS Technical Specification](./RDMS_Technical_Specification.md) (backend v1.5)
+> **Last Updated:** 2026-06-16
+> **Companion Document:** [RDMS Technical Specification](./RDMS_Technical_Specification.md) (backend v1.6)
 > **Repository:** Separate frontend repo (`siwarga-rdms-frontend` — proposed name)
 
 ---
@@ -16,6 +16,7 @@
 | v1.0 | 2026-06-13 | Initial web application specification. Design decisions resolved via structured review: staff-only v1 (resident portal deferred), React + TypeScript + Vite, Indonesian UI, responsive balanced layout, full backend parity, sessionStorage JWT + idle timeout, separate-repo static deployment, print CSS for guarantee documents, prepayment calculator (advisory), role-based dashboard, house detail hub with tabs. |
 | v1.1 | 2026-06-13 | Added §15.5 Single VPS Deployment — architecture, minimum/recommended hardware, Nginx reverse proxy, Docker Compose, security, backups. |
 | v1.2 | 2026-06-15 | Redesigned §9.1 Dashboard — Administrator executive overview (KPI cards, calendar-year trend chart, recent activity, top-10 arrears) plus operational alert row; single `GET /dashboard` data source; Supervisor minimal alerts-only dashboard. Updated §12 endpoint map and query keys. |
+| v1.3 | 2026-06-16 | **RT-scoped supervisors** (backend v1.6). A supervisor is confined to one RT: §3.1/§3.2 roles & nav matrix mark payments, guarantees, refunds, reports, dashboard, and house read as own-RT-only. §6.1 login response now carries `rtId`/`rtCode` (shown in the app shell). §9.1.2 Supervisor dashboard **replaced** the alerts-only variant with the full administrator layout, RT-scoped, with an RT-named subtitle. §9.12 User Management gains a required RT selector for supervisors (unassigned RTs only; 409 on collision) and documents supervisor handoff via deactivation. |
 
 ---
 
@@ -99,25 +100,29 @@ Roles mirror the backend exactly. The frontend **must not** expose navigation or
 
 | Role | Indonesian label | Capabilities in UI |
 |---|---|---|
-| **ADMINISTRATOR** | Administrator | Full access — RW, RT, houses, users, imports, payments, guarantees, refunds, reports |
-| **SUPERVISOR** | Supervisor | Payments, guarantee receipts/refunds, reports only |
+| **ADMINISTRATOR** | Administrator | Full access, **cluster-wide** — RW, RT, houses, users, imports, payments, guarantees, refunds, reports |
+| **SUPERVISOR** | Supervisor | Confined to **one RT** — payments, guarantee receipts/refunds, reports, dashboard, and read-only houses, all limited to that RT |
+
+> **RT confinement:** A supervisor is associated with exactly one RT (backend `AppUser.rt_id`, backend spec §3.5). All payments, guarantee receipts/refunds, reports, the dashboard, and the house list/detail they see are automatically scoped to that RT by the backend (backend spec §4.3). The supervisor's RT (`rtCode`) is returned at login and shown in the app shell. The frontend cannot widen this scope — it only reflects it.
 
 ### 3.2 Navigation Visibility Matrix
 
 | Module | Route prefix | ADMINISTRATOR | SUPERVISOR |
 |---|---|---|---|
-| Dashboard | `/` | ✅ | ✅ (supervisor variant) |
+| Dashboard | `/` | ✅ (cluster-wide) | ✅ (same layout, RT-scoped) |
 | RW Management | `/rws` | ✅ | ❌ |
 | RT Management | `/rts` | ✅ | ❌ |
-| Houses | `/houses` | ✅ | ✅ (read-only list + detail) |
-| Payments | `/payments` | ✅ | ✅ |
-| Rental Guarantee | `/rental-guarantee` | ✅ | ✅ |
-| Refunds | `/rental-guarantee/refunds` | ✅ | ✅ |
-| Reports | `/reports` | ✅ | ✅ |
+| Houses | `/houses` | ✅ | ✅ (read-only, own RT only) |
+| Payments | `/payments` | ✅ | ✅ (own RT only) |
+| Rental Guarantee | `/rental-guarantee` | ✅ | ✅ (own RT only) |
+| Refunds | `/rental-guarantee/refunds` | ✅ | ✅ (own RT only) |
+| Reports | `/reports` | ✅ | ✅ (own RT only) |
 | Users | `/users` | ✅ | ❌ |
 | CSV Import | `/import` | ✅ | ❌ |
 
 > **NOTE:** Supervisors can **read** house list and detail (needed for payment context) but **cannot** create, update, or import houses. Hide edit/create/import controls; backend returns 403 if invoked.
+
+> **RT SCOPE:** For supervisors, every list, report, picker, and the dashboard is restricted by the backend to their own RT (backend spec §4.3). The frontend does **not** need to send an `rtId` filter for supervisors — the backend overrides it — but it should reflect the scope in UI copy (e.g. the dashboard subtitle naming the RT). Attempting to open a resource outside their RT yields a 403 → show the **403 Halaman tidak tersedia** page.
 
 ### 3.3 Route Guards
 
@@ -217,14 +222,22 @@ siwarga-rdms-frontend/
 **Response:**
 
 ```json
-{ "token": "<JWT>", "role": "ADMINISTRATOR", "username": "admin" }
+{ "token": "<JWT>", "role": "ADMINISTRATOR", "username": "admin", "rtId": null, "rtCode": null }
+```
+
+For a supervisor, `rtId` / `rtCode` carry the RT they are confined to (backend spec §3.5, §4.3):
+
+```json
+{ "token": "<JWT>", "role": "SUPERVISOR", "username": "budi", "rtId": "<UUID>", "rtCode": "RT 05" }
 ```
 
 **On success:**
 
-1. Store in `sessionStorage`: `token`, `role`, `username`.
+1. Store in `sessionStorage`: `token`, `role`, `username`, and (when present) `rtId`, `rtCode`.
 2. Redirect to `/` (dashboard).
 3. Start idle-timeout watcher.
+
+Display `rtCode` in the app shell (role badge area) for supervisors so the active RT scope is always visible.
 
 **On failure (401):** Inline error *Nama pengguna atau kata sandi salah*.
 
@@ -388,15 +401,18 @@ Role-specific landing page after login. Both roles call **`GET /dashboard`** onc
 
 #### 9.1.2 Layout — Supervisor
 
-Minimal dashboard per operational focus:
+Supervisors see the **same dashboard layout as the administrator** (§9.1.1) — KPI row, trend chart, recent activity, top-10 arrears, and the alert row — with every figure **scoped to their RT** by the backend (backend spec §4.3, §5.5). No widgets are omitted; only the data scope differs.
 
-| Widget | API field | Action |
-|---|---|---|
-| Refund menunggu | `alerts.pendingRefunds` | Link → Refund list |
-| Jaminan belum lunas | `alerts.unpaidGuarantees` | Link → Jaminan Sewa |
-| **Primary CTA** | — | Large button **Catat Pembayaran Iuran** → `/payments/new` |
+Differences from the administrator layout:
 
-Supervisor response omits KPI cards, trend chart, recent activity, and top-arrears table (`GET /dashboard` returns `role` + `alerts` only).
+| Element | Supervisor behaviour |
+|---|---|
+| Subtitle | "Ringkasan kas dan status iuran warga — **{rtCode}**" (name the RT from the login `rtCode`) so the scope is explicit |
+| All KPIs / chart / tables | Driven by the same `GET /dashboard` payload, which the backend restricts to the supervisor's RT — no `rtId` param needed from the client |
+| Admin-only shortcuts | The alert-row shortcut cards that target admin-only routes (Tambah Rumah, Impor CSV) are hidden; keep **Catat Pembayaran** |
+| `topArrears` "Hubungi" / links | Resolve to houses within the supervisor's RT only |
+
+`GET /dashboard` returns the full payload shape for supervisors (RT-scoped) plus `rtId` / `rtCode`; render it with the §9.1.1 components unchanged.
 
 #### 9.1.3 Formatting notes
 
@@ -689,11 +705,15 @@ Export/print optional v1.1 enhancement — not required v1.
 
 ### 9.12 User Management — `/users` *(Administrator)*
 
-**List columns:** Username · Peran · Aktif · Aksi
+**List columns:** Username · Peran · **RT** (supervisor's assigned RT; "—" for admin) · Aktif · Aksi
 
-**Create form:** username · password · role (Administrator / Supervisor)
+**Create form:** username · password · role (Administrator / Supervisor) · **RT** *(required when role = Supervisor; hidden/cleared when Administrator)*
 
-**Edit form:** role · is_active · password (optional — leave blank to keep)
+- The **RT** field is a selector listing only RTs **without an active supervisor** (1:1 rule, backend spec §3.5). If the chosen RT is taken, the backend returns **409 Conflict** → show inline error *RT ini sudah memiliki supervisor*.
+
+**Edit form:** role · is_active · **RT** (same conditional rule) · password (optional — leave blank to keep)
+
+**Supervisor handoff (reassigning an RT):** Because an RT allows only one *active* supervisor, to move an RT to a new person, first **deactivate** the current supervisor (`is_active = false`) — this releases the RT (backend clears their `rt_id`) — then assign that RT to the new/edited supervisor. The deactivated user is retained for history. Surface this in a hint near the RT selector when the chosen RT is occupied.
 
 **Delete:** Confirm dialog.
 

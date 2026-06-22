@@ -9,8 +9,8 @@ class PenaltyCalculatorTest {
 
     private fun penalty(
         refMonth: YearMonth,
-        activity: Set<YearMonth> = emptySet(),
-    ) = PenaltyCalculator.compute(active, refMonth, activity).total
+        onTimeCovered: Set<YearMonth> = emptySet(),
+    ) = PenaltyCalculator.compute(active, refMonth, onTimeCovered).total
 
     @Test
     fun `under 6 months no penalty`() {
@@ -49,9 +49,9 @@ class PenaltyCalculatorTest {
     }
 
     @Test
-    fun `payment activity resets the counter`() {
-        // Activity in Jun 2024 splits the span; each side under 6 months -> no penalty.
-        val activity = setOf(YearMonth.of(2024, 6))
-        assertEquals(0, penalty(YearMonth.of(2024, 10), activity))
+    fun `an on-time-covered month breaks the run`() {
+        // Jun 2024 covered on time splits the span; each side under 6 months -> no penalty.
+        val onTimeCovered = setOf(YearMonth.of(2024, 6))
+        assertEquals(0, penalty(YearMonth.of(2024, 10), onTimeCovered))
     }
 }

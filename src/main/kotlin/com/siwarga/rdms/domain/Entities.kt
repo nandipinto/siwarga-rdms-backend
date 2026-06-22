@@ -12,6 +12,8 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.PrePersist
 import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
+import jakarta.persistence.Version
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -35,6 +37,9 @@ class Rw(
     var createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) {
     @PrePersist fun onCreate() {
         val now = Instant.now()
@@ -48,14 +53,18 @@ class Rw(
 }
 
 @Entity
-@Table(name = "rt")
+@Table(
+    name = "rt",
+    // RT codes are unique within an RW, not globally (matches V7 constraint uq_rt_rw_code).
+    uniqueConstraints = [UniqueConstraint(name = "uq_rt_rw_code", columnNames = ["rw_id", "rt_code"])],
+)
 class Rt(
     @Id
     var id: UUID = UUID.randomUUID(),
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "rw_id", nullable = false)
     var rw: Rw,
-    @Column(name = "rt_code", nullable = false, unique = true, length = 10)
+    @Column(name = "rt_code", nullable = false, length = 10)
     var rtCode: String,
     @Column(name = "description")
     var description: String? = null,
@@ -63,6 +72,9 @@ class Rt(
     var createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) {
     @PrePersist fun onCreate() {
         val now = Instant.now()
@@ -114,6 +126,9 @@ class House(
     var createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) {
     @PrePersist fun onCreate() {
         val now = Instant.now()
@@ -138,12 +153,20 @@ class AppUser(
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20)
     var role: UserRole,
+    // RT a supervisor is confined to (spec §3.5, §4.3). NULL for administrators and deactivated
+    // supervisors; required for active supervisors (enforced in UserService). UNIQUE → strict 1:1.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "rt_id", unique = true)
+    var rt: Rt? = null,
     @Column(name = "is_active", nullable = false)
     var isActive: Boolean = true,
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) {
     @PrePersist fun onCreate() {
         val now = Instant.now()
@@ -177,6 +200,9 @@ class Payment(
     var createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) {
     @PrePersist fun onCreate() {
         val now = Instant.now()
@@ -241,6 +267,9 @@ class RentalGuaranteePayment(
     var createdAt: Instant = Instant.now(),
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) {
     @PrePersist fun onCreate() {
         val now = Instant.now()
@@ -295,6 +324,9 @@ class RentalGuaranteeRefund(
     var completedAt: Instant? = null,
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) {
     @PrePersist fun onCreate() {
         val now = Instant.now()

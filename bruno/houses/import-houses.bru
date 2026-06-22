@@ -18,8 +18,11 @@ docs {
   POST /api/v1/houses/import — Bulk import from CSV/TXT. Administrator only. Returns 202.
 
   Column order: rt_code, block_code, house_number, owner_name, email, phone, active_date,
-  status, tenant_name, tenant_email, tenant_phone, lease_duration_months, rental_guarantee_amount_idr
+  status, tenant_name, tenant_email, tenant_phone, lease_duration_months, rental_guarantee_amount_idr,
+  rw_code (optional, trailing)
   Delimiter: comma or semicolon (auto-detected). UTF-8. Optional header row.
   status defaults to OWNED. rental_guarantee_amount_idr defaults to 300000 when guarantee applies.
+  rw_code disambiguates rt_code when the same code is reused across RWs; omit it for a single RW.
+  A row whose rt_code matches RTs in multiple RWs without an rw_code is rejected as ambiguous.
   Existing houses (same RT + block + number) are upserted. Lease termination auto-creates pending refunds.
 }

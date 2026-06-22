@@ -14,3 +14,8 @@ class ConflictException(
 class BadRequestException(
     message: String,
 ) : RuntimeException(message)
+
+/** Thrown when an authenticated user accesses a resource outside their RT scope (mapped to HTTP 403). */
+class ForbiddenException(
+    message: String,
+) : RuntimeException(message)

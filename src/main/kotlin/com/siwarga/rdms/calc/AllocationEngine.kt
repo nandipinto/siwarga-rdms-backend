@@ -27,7 +27,9 @@ object AllocationEngine {
         var nextUnpaid = activeDate // earliest period not yet fully covered
         var deposit = 0L // partial credit (< rate of nextUnpaid)
         var penaltiesPaid = 0L // total penalty cash settled so far
-        val activity = sortedSetOf<YearMonth>()
+        // Months covered ON TIME — by a payment dated in that month or earlier. Drives penalties
+        // (ADR-0001). Retroactively-cleared back-dues are never added here, so their penalty sticks.
+        val onTimeCovered = sortedSetOf<YearMonth>()
 
         val results = ArrayList<PaymentResult>(ordered.size)
 
@@ -40,13 +42,11 @@ object AllocationEngine {
                 )
             }
 
-            // The payment month itself is activity (resets the non-payment counter).
-            activity.add(paymentPeriod)
-
-            // Penalty owed for gaps strictly before this payment.
+            // Penalty owed for delinquency strictly before this payment, using on-time coverage
+            // established by EARLIER payments only (this payment's coverage is marked below).
             val penaltyOwed =
                 PenaltyCalculator
-                    .compute(activeDate, paymentPeriod, activity)
+                    .compute(activeDate, paymentPeriod, onTimeCovered)
                     .total
             val outstandingPenaltyBefore = penaltyOwed - penaltiesPaid
 
@@ -121,13 +121,23 @@ object AllocationEngine {
                     )
             }
 
+            // Mark months this payment covered ON TIME: from the payment month up to the new
+            // frontier. Months below paymentPeriod that it cleared retroactively are excluded —
+            // they were delinquent as they elapsed, so their penalty stands (ADR-0001). If the
+            // payment didn't even reach its own month, the range is empty (nothing marked).
+            var onTime = paymentPeriod
+            while (onTime < nextUnpaid) {
+                onTimeCovered.add(onTime)
+                onTime = onTime.plusMonths(1)
+            }
+
             results +=
                 PaymentResult(p, lines, deposit, covered)
         }
 
         return ReplayResult(
             results,
-            buildAccountState(activeDate, refMonth, nextUnpaid, deposit, penaltiesPaid, activity),
+            buildAccountState(activeDate, refMonth, nextUnpaid, deposit, penaltiesPaid, onTimeCovered),
         )
     }
 
@@ -214,7 +224,7 @@ object AllocationEngine {
         nextUnpaid: YearMonth,
         deposit: Long,
         penaltiesPaid: Long,
-        activity: Set<YearMonth>,
+        onTimeCovered: Set<YearMonth>,
     ): AccountState {
         val coveredThrough = if (nextUnpaid > activeDate) nextUnpaid.minusMonths(1) else null
 
@@ -235,7 +245,7 @@ object AllocationEngine {
 
         val penaltyResult =
             PenaltyCalculator
-                .compute(activeDate, refMonth, activity)
+                .compute(activeDate, refMonth, onTimeCovered)
         val outstandingPenalty = (penaltyResult.total - penaltiesPaid).coerceAtLeast(0)
 
         return AccountState(

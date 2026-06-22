@@ -19,6 +19,7 @@ import java.util.UUID
 class RentalGuaranteeRefundService(
     private val refundRepository: RentalGuaranteeRefundRepository,
     private val documentNumberService: DocumentNumberService,
+    private val scopeService: ScopeService,
 ) {
     @Transactional
     fun createPendingForLeaseEnd(
@@ -50,7 +51,10 @@ class RentalGuaranteeRefundService(
         note: String?,
         completedBy: AppUser,
     ): RentalGuaranteeRefund {
-        val refund = refundRepository.findById(id).orElseThrow { NotFoundException("Refund $id not found") }
+        // Write-lock the row first: two concurrent completions then serialize, and the second
+        // re-reads status = COMPLETED and is rejected below (no double-completion / double refund number).
+        val refund = refundRepository.findByIdForUpdate(id) ?: throw NotFoundException("Refund $id not found")
+        scopeService.assertHouseInScope(refund.house)
         if (refund.status != RefundStatus.PENDING) {
             throw BadRequestException("Only PENDING refunds can be completed")
         }
@@ -67,7 +71,8 @@ class RentalGuaranteeRefundService(
 
     @Transactional
     fun cancel(id: UUID) {
-        val refund = refundRepository.findById(id).orElseThrow { NotFoundException("Refund $id not found") }
+        val refund = refundRepository.findByIdForUpdate(id) ?: throw NotFoundException("Refund $id not found")
+        scopeService.assertHouseInScope(refund.house)
         if (refund.status != RefundStatus.PENDING) {
             throw BadRequestException("Only PENDING refunds can be cancelled")
         }
@@ -95,7 +100,7 @@ class RentalGuaranteeRefundService(
         return refundRepository
             .search(
                 houseId,
-                rtId,
+                scopeService.effectiveRtId(rtId),
                 status,
                 filterFrom = fromInstant != null,
                 fromInstant = fromInstant ?: java.time.Instant.EPOCH,
@@ -105,8 +110,11 @@ class RentalGuaranteeRefundService(
     }
 
     @Transactional(readOnly = true)
-    fun getView(id: UUID): RentalGuaranteeRefundView =
-        toView(refundRepository.findById(id).orElseThrow { NotFoundException("Refund $id not found") })
+    fun getView(id: UUID): RentalGuaranteeRefundView {
+        val refund = refundRepository.findById(id).orElseThrow { NotFoundException("Refund $id not found") }
+        scopeService.assertHouseInScope(refund.house)
+        return toView(refund)
+    }
 
     fun toView(refund: RentalGuaranteeRefund): RentalGuaranteeRefundView =
         RentalGuaranteeRefundView(

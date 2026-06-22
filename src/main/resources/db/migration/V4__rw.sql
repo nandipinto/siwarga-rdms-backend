@@ -7,12 +7,12 @@ CREATE TABLE rw (
 );
 
 INSERT INTO rw (id, rw_code, description, created_at, updated_at)
-VALUES (gen_random_uuid(), 'RW01', 'Default RW', NOW(), NOW());
+VALUES (gen_random_uuid(), 'RW014', 'RW 014', NOW(), NOW());
 
 ALTER TABLE rt ADD COLUMN rw_id UUID;
 
 UPDATE rt
-SET rw_id = (SELECT id FROM rw WHERE rw_code = 'RW01' LIMIT 1);
+SET rw_id = (SELECT id FROM rw WHERE rw_code = 'RW014' LIMIT 1);
 
 ALTER TABLE rt ALTER COLUMN rw_id SET NOT NULL;
 ALTER TABLE rt ADD CONSTRAINT fk_rt_rw FOREIGN KEY (rw_id) REFERENCES rw (id);

@@ -3,6 +3,7 @@ package com.siwarga.rdms.service
 import com.siwarga.rdms.config.RentalGuaranteeProperties
 import com.siwarga.rdms.domain.House
 import com.siwarga.rdms.domain.OccupancyStatus
+import com.siwarga.rdms.domain.Rt
 import com.siwarga.rdms.errors.NotFoundException
 import com.siwarga.rdms.repository.AppUserRepository
 import com.siwarga.rdms.repository.HouseRepository
@@ -94,12 +95,11 @@ class HouseService(
 
     @Transactional
     fun upsertFromImport(input: HouseImportInput): House {
-        val rt =
-            rtRepository.findByRtCode(input.rtCode)
-                ?: throw IllegalArgumentException("Unknown RT code '${input.rtCode}'")
+        val rt = resolveImportRt(input.rwCode, input.rtCode)
+        // Key the existing-house lookup on the resolved rt.id (uq_house_rt_block_number), not rt_code.
         val existing =
-            houseRepository.findByRtRtCodeAndBlockCodeAndHouseNumber(
-                input.rtCode,
+            houseRepository.findByRtIdAndBlockCodeAndHouseNumber(
+                rt.id,
                 input.blockCode,
                 input.houseNumber,
             )
@@ -125,6 +125,17 @@ class HouseService(
             create(req)
         }
     }
+
+    /**
+     * Resolves the target RT for an import row. rt_code is unique only within an RW (V7), so the
+     * rw_code/rt_code pair resolves the RT directly.
+     */
+    private fun resolveImportRt(
+        rwCode: String,
+        rtCode: String,
+    ): Rt =
+        rtRepository.findByRwRwCodeAndRtCode(rwCode, rtCode)
+            ?: throw IllegalArgumentException("Unknown RT code '$rtCode' in RW '$rwCode'")
 
     private fun resolveOccupancy(
         old: HouseOccupancyState?,
@@ -175,6 +186,7 @@ data class HouseDetail(
 
 data class HouseImportInput(
     val rtCode: String,
+    val rwCode: String,
     val blockCode: String,
     val houseNumber: String,
     val ownerName: String,

@@ -54,7 +54,7 @@ class UserController(
     @ResponseStatus(HttpStatus.CREATED)
     fun create(
         @Valid @RequestBody req: UserCreateRequest,
-    ): UserResponse = service.create(req.username, req.password, req.role).toResponse()
+    ): UserResponse = service.create(req.username, req.password, req.role, req.rtId).toResponse()
 
     @Operation(summary = "Update user")
     @ApiResponses(
@@ -65,7 +65,7 @@ class UserController(
     fun update(
         @PathVariable id: UUID,
         @Valid @RequestBody req: UserUpdateRequest,
-    ): UserResponse = service.update(id, req.role, req.isActive, req.password).toResponse()
+    ): UserResponse = service.update(id, req.role, req.isActive, req.password, req.rtId).toResponse()
 
     @Operation(summary = "Delete user")
     @ApiResponses(

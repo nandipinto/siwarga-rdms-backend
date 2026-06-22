@@ -3,6 +3,7 @@ package com.siwarga.rdms.service
 import com.siwarga.rdms.domain.Rt
 import com.siwarga.rdms.errors.ConflictException
 import com.siwarga.rdms.errors.NotFoundException
+import com.siwarga.rdms.repository.AppUserRepository
 import com.siwarga.rdms.repository.HouseRepository
 import com.siwarga.rdms.repository.RtRepository
 import com.siwarga.rdms.repository.RwRepository
@@ -15,12 +16,13 @@ class RtService(
     private val rtRepository: RtRepository,
     private val rwRepository: RwRepository,
     private val houseRepository: HouseRepository,
+    private val appUserRepository: AppUserRepository,
 ) {
     fun list(rwId: UUID? = null): List<Rt> =
         if (rwId != null) {
             rtRepository.findAllByRwIdOrderByRtCodeAsc(rwId)
         } else {
-            rtRepository.findAll()
+            rtRepository.findAllWithRw()
         }
 
     fun get(id: UUID): Rt = rtRepository.findById(id).orElseThrow { NotFoundException("RT $id not found") }
@@ -32,7 +34,9 @@ class RtService(
         description: String?,
     ): Rt {
         val rw = rwRepository.findById(rwId).orElseThrow { NotFoundException("RW $rwId not found") }
-        if (rtRepository.existsByRtCode(rtCode)) throw ConflictException("RT code '$rtCode' already exists")
+        if (rtRepository.existsByRwIdAndRtCode(rwId, rtCode)) {
+            throw ConflictException("RT code '$rtCode' already exists in this RW")
+        }
         return rtRepository.save(Rt(rw = rw, rtCode = rtCode, description = description))
     }
 
@@ -45,8 +49,10 @@ class RtService(
     ): Rt {
         val rt = get(id)
         val rw = rwRepository.findById(rwId).orElseThrow { NotFoundException("RW $rwId not found") }
-        if (rt.rtCode != rtCode && rtRepository.existsByRtCode(rtCode)) {
-            throw ConflictException("RT code '$rtCode' already exists")
+        // Only re-check when the (rw, code) pair actually changes; the constraint is RW-scoped.
+        val pairChanged = rt.rw.id != rwId || rt.rtCode != rtCode
+        if (pairChanged && rtRepository.existsByRwIdAndRtCode(rwId, rtCode)) {
+            throw ConflictException("RT code '$rtCode' already exists in this RW")
         }
         rt.rw = rw
         rt.rtCode = rtCode
@@ -59,6 +65,9 @@ class RtService(
         val rt = get(id)
         if (houseRepository.existsByRtId(rt.id)) {
             throw ConflictException("Cannot delete RT with linked houses")
+        }
+        if (appUserRepository.existsByRtId(rt.id)) {
+            throw ConflictException("Cannot delete RT with an assigned supervisor")
         }
         rtRepository.delete(rt)
     }
