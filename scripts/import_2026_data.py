@@ -2,9 +2,9 @@
 Transform 2026 laporan iuran into RDMS payment import CSV.
 
 Strategy:
-- One payment row per checked month (preserves on-time coverage).
-- Jan 2026: Rp 100,000; Feb–Dec 2026: Rp 120,000 (matches DuesRate.kt).
-- Any cash above sum(monthly rates) is added to the last paid month as deposit.
+- LUNAS at Rp 1.100.000: one January payment (early-bird prepay in RDMS engine).
+- Other rows: one payment per checked month at Jan Rp 100k / Feb+ Rp 120k.
+- Surplus cash on the last paid month becomes deposit.
 - House numbers zero-padded to match houses-sample.csv.
 
 Outputs:
@@ -20,6 +20,7 @@ import pandas as pd
 
 LEGACY_RATE = 100_000
 CURRENT_RATE = 120_000
+EARLY_BIRD_GROSS = 1_100_000
 FULL_YEAR = frozenset(range(1, 13))
 
 # (owner_name, blok, paid_months, total_amount_idr from laporan)
@@ -158,6 +159,10 @@ def payment_note(surplus: int) -> str:
     return f"Imported laporan {YEAR}"
 
 
+def early_bird_note() -> str:
+    return f"Imported laporan {YEAR} (early-bird Jan prepay)"
+
+
 def generate_payment_rows(
     name: str,
     block_code: str,
@@ -165,6 +170,26 @@ def generate_payment_rows(
     paid_months: frozenset[int],
     total_amt: int,
 ) -> tuple[list[dict], list[dict]]:
+    if paid_months == FULL_YEAR and total_amt == EARLY_BIRD_GROSS:
+        payment_date = f"{YEAR}-01-01"
+        note = early_bird_note()
+        rdms_row = {
+            "block_code": block_code,
+            "house_number": house_number,
+            "payment_date": payment_date,
+            "gross_amount": EARLY_BIRD_GROSS,
+            "note": note,
+        }
+        audit_row = {
+            "Nama": name,
+            "Blok": block_code,
+            "Nomor Rumah": house_number,
+            "Tanggal Bayar": payment_date,
+            "Jumlah Bayar": EARLY_BIRD_GROSS,
+            "Keterangan": note,
+        }
+        return [rdms_row], [audit_row]
+
     months = sorted(paid_months)
     if not months:
         return [], []
@@ -225,16 +250,19 @@ def main() -> None:
     df_rdms.to_csv(RDMS_CSV, index=False)
     df_audit.to_csv(AUDIT_CSV, index=False)
 
+    fajar = df_rdms[(df_rdms["block_code"] == "A") & (df_rdms["house_number"] == "06")]
     dinar = df_rdms[(df_rdms["block_code"] == "A") & (df_rdms["house_number"] == "02")]
     endra = df_rdms[(df_rdms["block_code"] == "A") & (df_rdms["house_number"] == "22")]
     deposit_rows = df_rdms[df_rdms["note"].str.contains("deposit", na=False)]
+    early_bird_rows = df_rdms[df_rdms["note"].str.contains("early-bird", na=False)]
 
     print(f"Wrote {len(df_rdms)} payment rows for {len(raw_2026)} houses")
     print(f"  RDMS import: {RDMS_CSV}")
     print(f"  Audit trail: {AUDIT_CSV}")
+    print(f"  Early-bird LUNAS rows: {len(early_bird_rows)}")
     print(f"  Full-year base dues: Rp {base_dues(FULL_YEAR):,} (Jan {LEGACY_RATE:,} + 11×{CURRENT_RATE:,})")
-    print("\nDinar A/02 (Jan Rp 100k, Feb+ Rp 120k):")
-    print(dinar[["payment_date", "gross_amount"]].to_string(index=False))
+    print("\nFajar A/06 (early-bird LUNAS):")
+    print(fajar[["payment_date", "gross_amount", "note"]].to_string(index=False))
     print("\nEndra A/22 (full year, laporan Rp 1.32M):")
     print(endra[["payment_date", "gross_amount"]].to_string(index=False))
     print(f"\nDeposit rows: {len(deposit_rows)}")

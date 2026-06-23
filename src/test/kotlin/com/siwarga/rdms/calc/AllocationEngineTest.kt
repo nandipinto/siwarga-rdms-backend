@@ -131,6 +131,25 @@ class AllocationEngineTest {
     }
 
     @Test
+    fun `January 2026 early-bird prepay covers full year with December reward`() {
+        val res =
+            AllocationEngine.replay(
+                ym(2026, 1),
+                listOf(pay("2026-01-01", 1_100_000)),
+                ym(2026, 12),
+            )
+        val lines = duesLines(res.perPayment.single())
+        assertEquals(12, lines.size)
+        assertEquals(11, lines.count { it.amount == 100_000 })
+        val december = lines.single { it.period == ym(2026, 12) }
+        assertEquals(0, december.amount)
+        assertEquals(100_000, december.discountApplied)
+        assertEquals(0, res.account.arrearsTotal)
+        assertEquals(0, res.account.penaltyTotal)
+        assertEquals(ym(2026, 12), res.account.coveredThrough)
+    }
+
+    @Test
     fun `payment settles arrears then penalty`() {
         // Active Jan 2024, no payment until Jul 2024. 6-month gap (Jan..Jun) -> 60k penalty.
         // Pay 7 months arrears (700k) + 60k penalty = 760k.

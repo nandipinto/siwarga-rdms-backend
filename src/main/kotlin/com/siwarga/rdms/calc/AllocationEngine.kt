@@ -52,6 +52,30 @@ object AllocationEngine {
 
             val lines = mutableListOf<AllocationLine>()
             val covered = mutableListOf<YearMonth>()
+
+            val earlyBird =
+                EarlyBirdJan2026.tryAllocate(
+                    payment = p,
+                    nextUnpaid = nextUnpaid,
+                    outstandingPenaltyBefore = outstandingPenaltyBefore,
+                    deposit = deposit,
+                )
+            if (earlyBird != null) {
+                lines += earlyBird.lines
+                covered += earlyBird.covered
+                nextUnpaid = earlyBird.nextUnpaid
+                deposit = 0L
+
+                var onTime = paymentPeriod
+                while (onTime < nextUnpaid) {
+                    onTimeCovered.add(onTime)
+                    onTime = onTime.plusMonths(1)
+                }
+
+                results += PaymentResult(p, lines, deposit, covered)
+                continue
+            }
+
             var remaining = p.grossAmount + deposit
             deposit = 0L
 
