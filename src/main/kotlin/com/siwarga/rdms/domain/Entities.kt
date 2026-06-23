@@ -101,8 +101,8 @@ class House(
     var houseNumber: String,
     @Column(name = "owner_name", nullable = false, length = 200)
     var ownerName: String,
-    @Column(name = "email", nullable = false, length = 255)
-    var email: String,
+    @Column(name = "email", length = 255)
+    var email: String? = null,
     @Column(name = "phone", nullable = false, length = 30)
     var phone: String,
     @Column(name = "active_date", nullable = false)

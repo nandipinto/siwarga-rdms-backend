@@ -54,7 +54,7 @@ data class HouseRequest(
     @field:Schema(example = "12")
     @field:NotBlank val houseNumber: String,
     @field:NotBlank val ownerName: String,
-    @field:Email @field:NotBlank val email: String,
+    @field:Email val email: String? = null,
     @field:NotBlank val phone: String,
     val activeDate: LocalDate? = null,
     val status: OccupancyStatus? = OccupancyStatus.OWNED,

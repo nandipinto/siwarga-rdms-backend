@@ -190,7 +190,7 @@ data class HouseImportInput(
     val blockCode: String,
     val houseNumber: String,
     val ownerName: String,
-    val email: String,
+    val email: String?,
     val phone: String,
     val activeDate: LocalDate,
     val occupancyInput: HouseOccupancyInput,

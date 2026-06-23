@@ -51,7 +51,7 @@ class ImportService(
                     blockCode = cols[2].trim(),
                     houseNumber = cols[3].trim(),
                     ownerName = cols[4].trim(),
-                    email = cols[5].trim(),
+                    email = cols.optional(5),
                     phone = cols[6].trim(),
                     activeDate = cols.optional(7)?.let { LocalDate.parse(it) } ?: LocalDate.of(2024, 1, 1),
                     occupancyInput =

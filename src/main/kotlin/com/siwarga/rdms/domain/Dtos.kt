@@ -116,7 +116,7 @@ data class DashboardTopArrearsEntry(
     val rtCode: String,
     val totalOutstandingIdr: Long,
     val phone: String,
-    val email: String,
+    val email: String?,
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
