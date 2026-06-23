@@ -140,7 +140,7 @@ class AllocationEngineTest {
             )
         val lines = duesLines(res.perPayment.single())
         assertEquals(12, lines.size)
-        assertEquals(11, lines.count { it.amount == 100_000 })
+        assertEquals(11, lines.count { it.amount == 100_000L })
         val december = lines.single { it.period == ym(2026, 12) }
         assertEquals(0, december.amount)
         assertEquals(100_000, december.discountApplied)
