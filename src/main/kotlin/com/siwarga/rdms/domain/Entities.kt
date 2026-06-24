@@ -142,6 +142,39 @@ class House(
 }
 
 @Entity
+@Table(name = "house_staff_status")
+class HouseStaffStatus(
+    @Id
+    var id: UUID = UUID.randomUUID(),
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "house_id", nullable = false)
+    var house: House,
+    @Column(name = "effective_from", nullable = false)
+    var effectiveFrom: LocalDate,
+    @Column(name = "effective_to")
+    var effectiveTo: LocalDate? = null,
+    @Column(name = "staff_house", nullable = false)
+    var staffHouse: Boolean,
+    @Column(name = "created_at", nullable = false)
+    var createdAt: Instant = Instant.now(),
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: Instant = Instant.now(),
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
+) {
+    @PrePersist fun onCreate() {
+        val now = Instant.now()
+        createdAt = now
+        updatedAt = now
+    }
+
+    @PreUpdate fun onUpdate() {
+        updatedAt = Instant.now()
+    }
+}
+
+@Entity
 @Table(name = "app_user")
 class AppUser(
     @Id

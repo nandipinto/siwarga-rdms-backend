@@ -33,6 +33,25 @@ data class PaymentResult(
     val coveredPeriods: List<YearMonth>,
 )
 
+/** A single effective-dated staff-eligibility period for a house. `effectiveTo` is exclusive. */
+data class StaffStatusPeriod(
+    val effectiveFrom: LocalDate,
+    val effectiveTo: LocalDate?,
+    val staffHouse: Boolean,
+) {
+    fun appliesOn(date: LocalDate): Boolean =
+        !date.isBefore(effectiveFrom) &&
+            (effectiveTo == null || date.isBefore(effectiveTo))
+}
+
+/** House-level discount inputs for the engine, derived from effective-dated history. */
+data class HouseDiscountContext(
+    val staffStatusPeriods: List<StaffStatusPeriod> = emptyList(),
+) {
+    fun isStaffHouseOn(date: LocalDate): Boolean =
+        staffStatusPeriods.any { it.staffHouse && it.appliesOn(date) }
+}
+
 /** Final derived account state for a house at a reference month (spec §6.2). */
 data class AccountState(
     val activeDate: YearMonth,

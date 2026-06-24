@@ -5,44 +5,18 @@ A,02,2026-03-01,120000,Imported laporan 2026
 A,02,2026-04-01,120000,Imported laporan 2026
 A,02,2026-05-01,120000,Imported laporan 2026
 A,02,2026-06-01,120000,Imported laporan 2026
-A,06,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-A,08,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-A,12,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-A,16,2026-01-01,100000,Imported laporan 2026
-A,16,2026-02-01,120000,Imported laporan 2026
-A,16,2026-03-01,120000,Imported laporan 2026
-A,16,2026-04-01,120000,Imported laporan 2026
-A,16,2026-05-01,120000,Imported laporan 2026
-A,16,2026-06-01,120000,Imported laporan 2026
-A,16,2026-07-01,120000,Imported laporan 2026
-A,16,2026-08-01,120000,Imported laporan 2026
-A,16,2026-09-01,120000,Imported laporan 2026
-A,16,2026-10-01,120000,Imported laporan 2026
-A,16,2026-11-01,120000,Imported laporan 2026
-A,16,2026-12-01,120000,Imported laporan 2026
-A,18,2026-01-01,100000,Imported laporan 2026
-A,18,2026-02-01,120000,Imported laporan 2026
-A,18,2026-03-01,120000,Imported laporan 2026
-A,18,2026-04-01,120000,Imported laporan 2026
-A,18,2026-05-01,120000,Imported laporan 2026
+A,06,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+A,08,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+A,12,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+A,16,2026-01-01,1000000,Imported laporan 2026 (Jan staff year)
+A,18,2026-01-01,550000,Imported laporan 2026 (Jan 6-month prepay)
 A,20,2026-01-01,100000,Imported laporan 2026
 A,20,2026-02-01,120000,Imported laporan 2026
 A,20,2026-03-01,120000,Imported laporan 2026
 A,20,2026-04-01,120000,Imported laporan 2026
 A,20,2026-05-01,120000,Imported laporan 2026
 A,20,2026-06-01,120000,Imported laporan 2026
-A,22,2026-01-01,100000,Imported laporan 2026
-A,22,2026-02-01,120000,Imported laporan 2026
-A,22,2026-03-01,120000,Imported laporan 2026
-A,22,2026-04-01,120000,Imported laporan 2026
-A,22,2026-05-01,120000,Imported laporan 2026
-A,22,2026-06-01,120000,Imported laporan 2026
-A,22,2026-07-01,120000,Imported laporan 2026
-A,22,2026-08-01,120000,Imported laporan 2026
-A,22,2026-09-01,120000,Imported laporan 2026
-A,22,2026-10-01,120000,Imported laporan 2026
-A,22,2026-11-01,120000,Imported laporan 2026
-A,22,2026-12-01,120000,Imported laporan 2026
+A,22,2026-01-01,1320000,Imported laporan 2026 (Jan year package +220000 deposit)
 A,26,2026-01-01,100000,Imported laporan 2026
 A,26,2026-02-01,120000,Imported laporan 2026
 A,26,2026-03-01,120000,Imported laporan 2026
@@ -50,49 +24,12 @@ A,26,2026-04-01,120000,Imported laporan 2026
 A,26,2026-05-01,120000,Imported laporan 2026
 A,26,2026-06-01,120000,Imported laporan 2026
 A,26,2026-07-01,120000,Imported laporan 2026
-B,01,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-B,02,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-B,03,2026-01-01,100000,Imported laporan 2026
-B,03,2026-02-01,120000,Imported laporan 2026
-B,03,2026-03-01,120000,Imported laporan 2026
-B,03,2026-04-01,120000,Imported laporan 2026
-B,03,2026-05-01,120000,Imported laporan 2026
-B,03,2026-06-01,120000,Imported laporan 2026
-B,03,2026-07-01,120000,Imported laporan 2026
-B,03,2026-08-01,120000,Imported laporan 2026
-B,03,2026-09-01,120000,Imported laporan 2026
-B,03,2026-10-01,120000,Imported laporan 2026
-B,03,2026-11-01,120000,Imported laporan 2026
-B,03,2026-12-01,120000,Imported laporan 2026
-B,05,2026-01-01,100000,Imported laporan 2026
-B,05,2026-02-01,120000,Imported laporan 2026
-B,05,2026-03-01,120000,Imported laporan 2026
-B,05,2026-04-01,120000,Imported laporan 2026
-B,05,2026-05-01,120000,Imported laporan 2026
-B,05,2026-06-01,120000,Imported laporan 2026
-B,05,2026-07-01,120000,Imported laporan 2026
-B,05,2026-08-01,120000,Imported laporan 2026
-B,05,2026-09-01,120000,Imported laporan 2026
-B,05,2026-10-01,120000,Imported laporan 2026
-B,05,2026-11-01,120000,Imported laporan 2026
-B,05,2026-12-01,120000,Imported laporan 2026
-B,06,2026-01-01,100000,Imported laporan 2026
-B,06,2026-02-01,120000,Imported laporan 2026
-B,06,2026-03-01,120000,Imported laporan 2026
-B,06,2026-04-01,120000,Imported laporan 2026
-B,06,2026-05-01,120000,Imported laporan 2026
-B,07,2026-01-01,100000,Imported laporan 2026
-B,07,2026-02-01,120000,Imported laporan 2026
-B,07,2026-03-01,120000,Imported laporan 2026
-B,07,2026-04-01,120000,Imported laporan 2026
-B,07,2026-05-01,120000,Imported laporan 2026
-B,07,2026-06-01,120000,Imported laporan 2026
-B,07,2026-07-01,120000,Imported laporan 2026
-B,07,2026-08-01,120000,Imported laporan 2026
-B,07,2026-09-01,120000,Imported laporan 2026
-B,07,2026-10-01,120000,Imported laporan 2026
-B,07,2026-11-01,120000,Imported laporan 2026
-B,07,2026-12-01,120000,Imported laporan 2026
+B,01,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+B,02,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+B,03,2026-01-01,1300000,Imported laporan 2026 (Jan year package +200000 deposit)
+B,05,2026-01-01,1000000,Imported laporan 2026 (Jan staff year)
+B,06,2026-01-01,550000,Imported laporan 2026 (Jan 6-month prepay)
+B,07,2026-01-01,1000000,Imported laporan 2026 (Jan staff year)
 B,08,2026-01-01,100000,Imported laporan 2026
 B,08,2026-02-01,120000,Imported laporan 2026
 B,08,2026-03-01,120000,Imported laporan 2026
@@ -117,18 +54,7 @@ B,15,2026-02-01,120000,Imported laporan 2026
 B,15,2026-03-01,120000,Imported laporan 2026
 B,15,2026-04-01,120000,Imported laporan 2026
 B,15,2026-05-01,120000,Imported laporan 2026
-B,18,2026-01-01,100000,Imported laporan 2026
-B,18,2026-02-01,120000,Imported laporan 2026
-B,18,2026-03-01,120000,Imported laporan 2026
-B,18,2026-04-01,120000,Imported laporan 2026
-B,18,2026-05-01,120000,Imported laporan 2026
-B,18,2026-06-01,120000,Imported laporan 2026
-B,18,2026-07-01,120000,Imported laporan 2026
-B,18,2026-08-01,120000,Imported laporan 2026
-B,18,2026-09-01,120000,Imported laporan 2026
-B,18,2026-10-01,120000,Imported laporan 2026
-B,18,2026-11-01,120000,Imported laporan 2026
-B,18,2026-12-01,120000,Imported laporan 2026
+B,18,2026-01-01,1260000,Imported laporan 2026 (Jan year package +160000 deposit)
 B,19,2026-01-01,100000,Imported laporan 2026
 B,19,2026-02-01,120000,Imported laporan 2026
 B,19,2026-03-01,120000,Imported laporan 2026
@@ -141,21 +67,17 @@ B,20,2026-04-01,120000,Imported laporan 2026
 B,20,2026-05-01,120000,Imported laporan 2026
 B,20,2026-06-01,120000,Imported laporan 2026
 B,20,2026-07-01,120000,Imported laporan 2026
-B,21,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-B,22,2026-01-01,100000,Imported laporan 2026
-B,22,2026-02-01,120000,Imported laporan 2026
-B,22,2026-03-01,120000,Imported laporan 2026
-B,22,2026-04-01,120000,Imported laporan 2026
-B,22,2026-05-01,120000,Imported laporan 2026
-B,23,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-B,25,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
+B,21,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+B,22,2026-01-01,550000,Imported laporan 2026 (Jan 6-month prepay)
+B,23,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+B,25,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
 B,29,2026-01-01,100000,Imported laporan 2026
 B,29,2026-02-01,120000,Imported laporan 2026
 B,29,2026-03-01,120000,Imported laporan 2026
 B,29,2026-04-01,120000,Imported laporan 2026
 B,29,2026-05-01,120000,Imported laporan 2026
 B,29,2026-06-01,120000,Imported laporan 2026
-B,31,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
+B,31,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
 B,33,2026-01-01,100000,Imported laporan 2026
 B,33,2026-02-01,120000,Imported laporan 2026
 B,33,2026-03-01,120000,Imported laporan 2026
@@ -171,19 +93,8 @@ C,01,2026-02-01,120000,Imported laporan 2026
 C,01,2026-03-01,120000,Imported laporan 2026
 C,01,2026-04-01,120000,Imported laporan 2026
 C,01,2026-05-01,120000,Imported laporan 2026
-C,02,2026-01-01,100000,Imported laporan 2026
-C,02,2026-02-01,120000,Imported laporan 2026
-C,02,2026-03-01,120000,Imported laporan 2026
-C,02,2026-04-01,120000,Imported laporan 2026
-C,02,2026-05-01,120000,Imported laporan 2026
-C,02,2026-06-01,120000,Imported laporan 2026
-C,02,2026-07-01,120000,Imported laporan 2026
-C,02,2026-08-01,120000,Imported laporan 2026
-C,02,2026-09-01,120000,Imported laporan 2026
-C,02,2026-10-01,120000,Imported laporan 2026
-C,02,2026-11-01,120000,Imported laporan 2026
-C,02,2026-12-01,120000,Imported laporan 2026
-C,03,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
+C,02,2026-01-01,1320000,Imported laporan 2026 (Jan year package +220000 deposit)
+C,03,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
 C,05,2026-01-01,100000,Imported laporan 2026
 C,05,2026-02-01,120000,Imported laporan 2026
 C,05,2026-03-01,120000,Imported laporan 2026
@@ -205,78 +116,37 @@ C,08,2026-03-01,120000,Imported laporan 2026
 C,08,2026-04-01,120000,Imported laporan 2026
 C,08,2026-05-01,120000,Imported laporan 2026
 C,08,2026-06-01,120000,Imported laporan 2026
-C,09,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-C,10,2026-01-01,100000,Imported laporan 2026
-C,10,2026-02-01,120000,Imported laporan 2026
-C,10,2026-03-01,120000,Imported laporan 2026
-C,10,2026-04-01,120000,Imported laporan 2026
-C,10,2026-05-01,120000,Imported laporan 2026
+C,09,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+C,10,2026-01-01,550000,Imported laporan 2026 (Jan 6-month prepay)
 C,11,2026-01-01,100000,Imported laporan 2026
 C,11,2026-02-01,120000,Imported laporan 2026
 C,11,2026-03-01,120000,Imported laporan 2026
 C,11,2026-04-01,120000,Imported laporan 2026
 C,11,2026-05-01,120000,Imported laporan 2026
 C,11,2026-06-01,120000,Imported laporan 2026
-C,12,2026-01-01,100000,Imported laporan 2026
-C,12,2026-02-01,120000,Imported laporan 2026
-C,12,2026-03-01,120000,Imported laporan 2026
-C,12,2026-04-01,120000,Imported laporan 2026
-C,12,2026-05-01,120000,Imported laporan 2026
-C,12,2026-06-01,120000,Imported laporan 2026
-C,12,2026-07-01,120000,Imported laporan 2026
-C,12,2026-08-01,120000,Imported laporan 2026
-C,12,2026-09-01,120000,Imported laporan 2026
-C,12,2026-10-01,120000,Imported laporan 2026
-C,12,2026-11-01,120000,Imported laporan 2026
-C,12,2026-12-01,120000,Imported laporan 2026
-C,15,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
+C,12,2026-01-01,1210000,Imported laporan 2026 (Jan year package +110000 deposit)
+C,15,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
 C,16,2026-01-01,100000,Imported laporan 2026
 C,16,2026-02-01,120000,Imported laporan 2026
 C,16,2026-03-01,120000,Imported laporan 2026
 C,16,2026-04-01,120000,Imported laporan 2026
 C,16,2026-05-01,120000,Imported laporan 2026
-C,19,2026-01-01,100000,Imported laporan 2026
-C,19,2026-02-01,120000,Imported laporan 2026
-C,19,2026-03-01,120000,Imported laporan 2026
-C,19,2026-04-01,120000,Imported laporan 2026
-C,19,2026-05-01,120000,Imported laporan 2026
+C,19,2026-01-01,550000,Imported laporan 2026 (Jan 6-month prepay)
 C,22,2026-01-01,100000,Imported laporan 2026
 C,22,2026-02-01,120000,Imported laporan 2026
 C,22,2026-03-01,120000,Imported laporan 2026
 C,22,2026-04-01,120000,Imported laporan 2026
 C,22,2026-05-01,120000,Imported laporan 2026
 C,22,2026-06-01,120000,Imported laporan 2026
-D,01,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-D,02,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-D,03,2026-01-01,100000,Imported laporan 2026
-D,03,2026-02-01,120000,Imported laporan 2026
-D,03,2026-03-01,120000,Imported laporan 2026
-D,03,2026-04-01,120000,Imported laporan 2026
-D,03,2026-05-01,120000,Imported laporan 2026
-D,03,2026-06-01,120000,Imported laporan 2026
-D,03,2026-07-01,120000,Imported laporan 2026
-D,03,2026-08-01,120000,Imported laporan 2026
-D,03,2026-09-01,120000,Imported laporan 2026
-D,03,2026-10-01,120000,Imported laporan 2026
-D,03,2026-11-01,120000,Imported laporan 2026
-D,03,2026-12-01,120000,Imported laporan 2026
-D,05,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-D,06,2026-01-01,100000,Imported laporan 2026
-D,06,2026-02-01,120000,Imported laporan 2026
-D,06,2026-03-01,120000,Imported laporan 2026
-D,06,2026-04-01,120000,Imported laporan 2026
-D,06,2026-05-01,120000,Imported laporan 2026
-D,06,2026-06-01,120000,Imported laporan 2026
-D,06,2026-07-01,120000,Imported laporan 2026
-D,06,2026-08-01,120000,Imported laporan 2026
-D,06,2026-09-01,120000,Imported laporan 2026
-D,06,2026-10-01,120000,Imported laporan 2026
-D,06,2026-11-01,120000,Imported laporan 2026
-D,06,2026-12-01,120000,Imported laporan 2026
-D,07,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-D,08,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-D,09,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-D,10,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
+D,01,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+D,02,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+D,03,2026-01-01,1210000,Imported laporan 2026 (Jan year package +110000 deposit)
+D,05,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+D,06,2026-01-01,1260000,Imported laporan 2026 (Jan year package +160000 deposit)
+D,07,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+D,08,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+D,09,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+D,10,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
 D,11,2026-01-01,100000,Imported laporan 2026
 D,11,2026-02-01,120000,Imported laporan 2026
 D,11,2026-03-01,120000,Imported laporan 2026
@@ -291,108 +161,34 @@ D,12,2026-02-01,120000,Imported laporan 2026
 D,12,2026-03-01,120000,Imported laporan 2026
 D,12,2026-04-01,120000,Imported laporan 2026
 D,12,2026-05-01,120000,Imported laporan 2026
-D,15,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-D,16,2026-01-01,100000,Imported laporan 2026
-D,16,2026-02-01,120000,Imported laporan 2026
-D,16,2026-03-01,120000,Imported laporan 2026
-D,16,2026-04-01,120000,Imported laporan 2026
-D,16,2026-05-01,120000,Imported laporan 2026
-D,16,2026-06-01,120000,Imported laporan 2026
-D,16,2026-07-01,120000,Imported laporan 2026
-D,16,2026-08-01,120000,Imported laporan 2026
-D,16,2026-09-01,120000,Imported laporan 2026
-D,16,2026-10-01,120000,Imported laporan 2026
-D,16,2026-11-01,120000,Imported laporan 2026
-D,16,2026-12-01,120000,Imported laporan 2026
-D,17,2026-01-01,100000,Imported laporan 2026
-D,17,2026-02-01,120000,Imported laporan 2026
-D,17,2026-03-01,120000,Imported laporan 2026
-D,17,2026-04-01,120000,Imported laporan 2026
-D,17,2026-05-01,120000,Imported laporan 2026
-D,18,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-D,19,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-D,19A,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-D,20,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
+D,15,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+D,16,2026-01-01,1000000,Imported laporan 2026 (Jan staff year)
+D,17,2026-01-01,550000,Imported laporan 2026 (Jan 6-month prepay)
+D,18,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+D,19,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+D,19A,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+D,20,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
 D,22,2026-01-01,100000,Imported laporan 2026
 D,22,2026-02-01,120000,Imported laporan 2026
 D,22,2026-03-01,120000,Imported laporan 2026
-D,26,2026-01-01,100000,Imported laporan 2026
-D,26,2026-02-01,120000,Imported laporan 2026
-D,26,2026-03-01,120000,Imported laporan 2026
-D,26,2026-04-01,120000,Imported laporan 2026
-D,26,2026-05-01,120000,Imported laporan 2026
-D,28,2026-01-01,100000,Imported laporan 2026
-D,28,2026-02-01,120000,Imported laporan 2026
-D,28,2026-03-01,120000,Imported laporan 2026
-D,28,2026-04-01,120000,Imported laporan 2026
-D,28,2026-05-01,120000,Imported laporan 2026
-D,28,2026-06-01,120000,Imported laporan 2026
-D,28,2026-07-01,120000,Imported laporan 2026
-D,28,2026-08-01,120000,Imported laporan 2026
-D,28,2026-09-01,120000,Imported laporan 2026
-D,28,2026-10-01,120000,Imported laporan 2026
-D,28,2026-11-01,120000,Imported laporan 2026
-D,28,2026-12-01,120000,Imported laporan 2026
-D,30,2026-01-01,100000,Imported laporan 2026
-D,30,2026-02-01,120000,Imported laporan 2026
-D,30,2026-03-01,120000,Imported laporan 2026
-D,30,2026-04-01,120000,Imported laporan 2026
-D,30,2026-05-01,120000,Imported laporan 2026
-D,30,2026-06-01,120000,Imported laporan 2026
-D,30,2026-07-01,120000,Imported laporan 2026
-D,30,2026-08-01,120000,Imported laporan 2026
-D,30,2026-09-01,120000,Imported laporan 2026
-D,30,2026-10-01,120000,Imported laporan 2026
-D,30,2026-11-01,120000,Imported laporan 2026
-D,30,2026-12-01,120000,Imported laporan 2026
-D,30A,2026-01-01,100000,Imported laporan 2026
-D,30A,2026-02-01,120000,Imported laporan 2026
-D,30A,2026-03-01,120000,Imported laporan 2026
-D,30A,2026-04-01,120000,Imported laporan 2026
-D,30A,2026-05-01,120000,Imported laporan 2026
-D,30A,2026-06-01,120000,Imported laporan 2026
-D,30A,2026-07-01,120000,Imported laporan 2026
-D,30A,2026-08-01,120000,Imported laporan 2026
-D,30A,2026-09-01,120000,Imported laporan 2026
-D,30A,2026-10-01,120000,Imported laporan 2026
-D,30A,2026-11-01,120000,Imported laporan 2026
-D,30A,2026-12-01,120000,Imported laporan 2026
+D,26,2026-01-01,550000,Imported laporan 2026 (Jan 6-month prepay)
+D,28,2026-01-01,1320000,Imported laporan 2026 (Jan year package +220000 deposit)
+D,30,2026-01-01,1260000,Imported laporan 2026 (Jan year package +160000 deposit)
+D,30A,2026-01-01,1200000,Imported laporan 2026 (Jan year package +100000 deposit)
 E,01,2026-01-01,100000,Imported laporan 2026
 E,01,2026-02-01,120000,Imported laporan 2026
 E,01,2026-03-01,120000,Imported laporan 2026
 E,01,2026-04-01,120000,Imported laporan 2026
 E,01,2026-05-01,120000,Imported laporan 2026
 E,01,2026-06-01,120000,Imported laporan 2026
-E,02,2026-01-01,100000,Imported laporan 2026
-E,02,2026-02-01,120000,Imported laporan 2026
-E,02,2026-03-01,120000,Imported laporan 2026
-E,02,2026-04-01,120000,Imported laporan 2026
-E,02,2026-05-01,120000,Imported laporan 2026
-E,02,2026-06-01,120000,Imported laporan 2026
-E,02,2026-07-01,120000,Imported laporan 2026
-E,02,2026-08-01,120000,Imported laporan 2026
-E,02,2026-09-01,120000,Imported laporan 2026
-E,02,2026-10-01,120000,Imported laporan 2026
-E,02,2026-11-01,120000,Imported laporan 2026
-E,02,2026-12-01,120000,Imported laporan 2026
+E,02,2026-01-01,1260000,Imported laporan 2026 (Jan year package +160000 deposit)
 E,03,2026-01-01,100000,Imported laporan 2026
 E,03,2026-02-01,120000,Imported laporan 2026
 E,03,2026-03-01,120000,Imported laporan 2026
 E,03,2026-04-01,120000,Imported laporan 2026
 E,03,2026-05-01,120000,Imported laporan 2026
 E,03,2026-06-01,120000,Imported laporan 2026
-E,05,2026-01-01,100000,Imported laporan 2026
-E,05,2026-02-01,120000,Imported laporan 2026
-E,05,2026-03-01,120000,Imported laporan 2026
-E,05,2026-04-01,120000,Imported laporan 2026
-E,05,2026-05-01,120000,Imported laporan 2026
-E,05,2026-06-01,120000,Imported laporan 2026
-E,05,2026-07-01,120000,Imported laporan 2026
-E,05,2026-08-01,120000,Imported laporan 2026
-E,05,2026-09-01,120000,Imported laporan 2026
-E,05,2026-10-01,120000,Imported laporan 2026
-E,05,2026-11-01,120000,Imported laporan 2026
-E,05,2026-12-01,120000,Imported laporan 2026
+E,05,2026-01-01,1320000,Imported laporan 2026 (Jan year package +220000 deposit)
 E,06,2026-01-01,100000,Imported laporan 2026
 E,06,2026-02-01,120000,Imported laporan 2026
 E,06,2026-03-01,120000,Imported laporan 2026
@@ -402,24 +198,9 @@ E,06,2026-06-01,120000,Imported laporan 2026
 E,07,2026-01-01,100000,Imported laporan 2026
 E,07,2026-02-01,120000,Imported laporan 2026
 E,07,2026-03-01,440000,Imported laporan 2026 (+320000 deposit)
-E,08,2026-01-01,100000,Imported laporan 2026
-E,08,2026-02-01,120000,Imported laporan 2026
-E,08,2026-03-01,120000,Imported laporan 2026
-E,08,2026-04-01,120000,Imported laporan 2026
-E,08,2026-05-01,120000,Imported laporan 2026
-E,08,2026-06-01,120000,Imported laporan 2026
-E,08,2026-07-01,120000,Imported laporan 2026
-E,08,2026-08-01,120000,Imported laporan 2026
-E,08,2026-09-01,120000,Imported laporan 2026
-E,08,2026-10-01,120000,Imported laporan 2026
-E,08,2026-11-01,120000,Imported laporan 2026
-E,08,2026-12-01,120000,Imported laporan 2026
-E,09,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-E,10,2026-01-01,100000,Imported laporan 2026
-E,10,2026-02-01,120000,Imported laporan 2026
-E,10,2026-03-01,120000,Imported laporan 2026
-E,10,2026-04-01,120000,Imported laporan 2026
-E,10,2026-05-01,120000,Imported laporan 2026
+E,08,2026-01-01,1000000,Imported laporan 2026 (Jan staff year)
+E,09,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+E,10,2026-01-01,550000,Imported laporan 2026 (Jan 6-month prepay)
 E,11,2026-01-01,100000,Imported laporan 2026
 E,11,2026-02-01,120000,Imported laporan 2026
 E,11,2026-03-01,120000,Imported laporan 2026
@@ -446,16 +227,16 @@ E,16,2026-06-01,120000,Imported laporan 2026
 E,16,2026-07-01,120000,Imported laporan 2026
 E,16,2026-08-01,120000,Imported laporan 2026
 E,16,2026-09-01,120000,Imported laporan 2026
-E,17,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-E,18,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
+E,17,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+E,18,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
 E,20,2026-01-01,100000,Imported laporan 2026
 E,20,2026-02-01,120000,Imported laporan 2026
 E,20,2026-03-01,120000,Imported laporan 2026
 E,20,2026-04-01,120000,Imported laporan 2026
 E,20,2026-05-01,120000,Imported laporan 2026
 E,20,2026-06-01,120000,Imported laporan 2026
-E,22,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
-E,23,2026-01-01,1100000,Imported laporan 2026 (early-bird Jan prepay)
+E,22,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
+E,23,2026-01-01,1100000,Imported laporan 2026 (Jan year package)
 E,25,2026-01-01,100000,Imported laporan 2026
 E,28,2026-01-01,100000,Imported laporan 2026
 E,28,2026-02-01,120000,Imported laporan 2026

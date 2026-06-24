@@ -2,8 +2,10 @@ package com.siwarga.rdms.service
 
 import com.siwarga.rdms.calc.AllocationEngine
 import com.siwarga.rdms.calc.AllocationType
+import com.siwarga.rdms.calc.HouseDiscountContext
 import com.siwarga.rdms.calc.PaymentInput
 import com.siwarga.rdms.calc.ReplayResult
+import com.siwarga.rdms.calc.StaffStatusPeriod
 import com.siwarga.rdms.domain.AllocationView
 import com.siwarga.rdms.domain.House
 import com.siwarga.rdms.domain.Payment
@@ -11,6 +13,7 @@ import com.siwarga.rdms.domain.PaymentAllocation
 import com.siwarga.rdms.domain.PaymentView
 import com.siwarga.rdms.errors.NotFoundException
 import com.siwarga.rdms.repository.HouseRepository
+import com.siwarga.rdms.repository.HouseStaffStatusRepository
 import com.siwarga.rdms.repository.PaymentAllocationRepository
 import com.siwarga.rdms.repository.PaymentRepository
 import org.springframework.stereotype.Service
@@ -27,6 +30,7 @@ class AccountService(
     private val houseRepository: HouseRepository,
     private val paymentRepository: PaymentRepository,
     private val allocationRepository: PaymentAllocationRepository,
+    private val staffStatusRepository: HouseStaffStatusRepository,
 ) {
     fun loadHouse(houseId: UUID): House = houseRepository.findById(houseId).orElseThrow { NotFoundException("House $houseId not found") }
 
@@ -36,9 +40,21 @@ class AccountService(
         refMonth: YearMonth = YearMonth.now(),
     ): ReplayResult {
         val payments = paymentRepository.findByHouseIdOrderByPaymentDateAscCreatedAtAscIdAsc(house.id)
-        val inputs = payments.map { PaymentInput(it.paymentDate, it.grossAmount, it.id, it.createdAt) }
-        return AllocationEngine.replay(YearMonth.from(house.activeDate), inputs, refMonth)
+        return replayPartial(house, payments, refMonth)
     }
+
+    /** Read-only replay over a specific [payments] slice (e.g. up to a target payment). */
+    fun replayPartial(
+        house: House,
+        payments: List<Payment>,
+        refMonth: YearMonth,
+    ): ReplayResult =
+        AllocationEngine.replay(
+            YearMonth.from(house.activeDate),
+            payments.map { PaymentInput(it.paymentDate, it.grossAmount, it.id, it.createdAt) },
+            refMonth,
+            discountContextFor(house),
+        )
 
     /**
      * Recompute all allocations for a house from scratch and persist them, replacing any existing
@@ -60,6 +76,7 @@ class AccountService(
                 YearMonth.from(house.activeDate),
                 payments.map { PaymentInput(it.paymentDate, it.grossAmount, it.id, it.createdAt) },
                 refMonth,
+                discountContextFor(house),
             )
 
         payments.forEach { allocationRepository.deleteByPaymentId(it.id) }
@@ -82,6 +99,18 @@ class AccountService(
         allocationRepository.saveAll(rows)
         return result
     }
+
+    private fun discountContextFor(house: House): HouseDiscountContext =
+        HouseDiscountContext(
+            staffStatusPeriods =
+                staffStatusRepository.findByHouseIdOrderByEffectiveFromAsc(house.id).map {
+                    StaffStatusPeriod(
+                        effectiveFrom = it.effectiveFrom,
+                        effectiveTo = it.effectiveTo,
+                        staffHouse = it.staffHouse,
+                    )
+                },
+        )
 
     /** Lightweight view from persisted allocation rows (no replay) — for list endpoints. */
     fun toStoredView(payment: Payment): PaymentView {

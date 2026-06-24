@@ -2,6 +2,7 @@ package com.siwarga.rdms.repository
 
 import com.siwarga.rdms.domain.AppUser
 import com.siwarga.rdms.domain.House
+import com.siwarga.rdms.domain.HouseStaffStatus
 import com.siwarga.rdms.domain.Payment
 import com.siwarga.rdms.domain.PaymentAllocation
 import com.siwarga.rdms.domain.RefundStatus
@@ -91,6 +92,10 @@ interface HouseRepository : JpaRepository<House, UUID> {
     fun findByIdForUpdate(
         @Param("id") id: UUID,
     ): House?
+}
+
+interface HouseStaffStatusRepository : JpaRepository<HouseStaffStatus, UUID> {
+    fun findByHouseIdOrderByEffectiveFromAsc(houseId: UUID): List<HouseStaffStatus>
 }
 
 interface AppUserRepository : JpaRepository<AppUser, UUID> {

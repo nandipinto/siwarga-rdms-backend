@@ -17,6 +17,7 @@ object AllocationEngine {
         activeDate: YearMonth,
         payments: List<PaymentInput>,
         refMonth: YearMonth,
+        discountContext: HouseDiscountContext = HouseDiscountContext(),
     ): ReplayResult {
         // Stable chronological order; same-date payments break ties by createdAt then ref (Q8).
         val ordered =
@@ -53,18 +54,19 @@ object AllocationEngine {
             val lines = mutableListOf<AllocationLine>()
             val covered = mutableListOf<YearMonth>()
 
-            val earlyBird =
-                EarlyBirdJan2026.tryAllocate(
+            val promo =
+                JanuaryRateLock.tryAllocate(
                     payment = p,
                     nextUnpaid = nextUnpaid,
                     outstandingPenaltyBefore = outstandingPenaltyBefore,
                     deposit = deposit,
+                    isStaffHouse = discountContext.isStaffHouseOn(p.paymentDate),
                 )
-            if (earlyBird != null) {
-                lines += earlyBird.lines
-                covered += earlyBird.covered
-                nextUnpaid = earlyBird.nextUnpaid
-                deposit = 0L
+            if (promo != null) {
+                lines += promo.lines
+                covered += promo.covered
+                nextUnpaid = promo.nextUnpaid
+                deposit = promo.deposit
 
                 var onTime = paymentPeriod
                 while (onTime < nextUnpaid) {

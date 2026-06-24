@@ -1,8 +1,11 @@
 """
 Transform 2026 laporan iuran into RDMS payment import CSV.
 
-Strategy:
-- LUNAS at Rp 1.100.000: one January payment (early-bird prepay in RDMS engine).
+Strategy (ADR-0002):
+- Rp 550.000: one January payment (6-month Jan prepay).
+- Rp 1.000.000 full-year for staff-eligible houses: one January payment (staff year).
+- Rp 1.100.000 full-year: one January payment (year package).
+- Full-year gross > Rp 1.100.000: one January payment (year package + deposit).
 - Other rows: one payment per checked month at Jan Rp 100k / Feb+ Rp 120k.
 - Surplus cash on the last paid month becomes deposit.
 - House numbers zero-padded to match houses-sample.csv.
@@ -20,8 +23,23 @@ import pandas as pd
 
 LEGACY_RATE = 100_000
 CURRENT_RATE = 120_000
-EARLY_BIRD_GROSS = 1_100_000
+SIX_MONTH_GROSS = 550_000
+STAFF_YEAR_GROSS = 1_000_000
+YEAR_PACKAGE_GROSS = 1_100_000
 FULL_YEAR = frozenset(range(1, 13))
+SIX_MONTHS = frozenset(range(1, 7))
+
+# Historical staff-eligible houses used only to generate the 2026 import CSV.
+# Runtime staff eligibility is stored in house_staff_status.
+STAFF_HOUSE_KEYS = frozenset(
+    {
+        "A/16",
+        "B/05",
+        "B/07",
+        "D/16",
+        "E/08",
+    }
+)
 
 # (owner_name, blok, paid_months, total_amount_idr from laporan)
 # Source: LAPORAN IURAN WARGA CLUSTER CARISSA RT 01 (2026)
@@ -34,7 +52,7 @@ raw_2026: list[tuple[str, str, frozenset[int], int]] = [
     ("Maya", "A/08", FULL_YEAR, 1_100_000),
     ("Alfen", "A/12", FULL_YEAR, 1_100_000),
     ("Tonny", "A/16", FULL_YEAR, 1_000_000),
-    ("Nurman", "A/18", frozenset(range(1, 6)), 550_000),
+    ("Nurman", "A/18", SIX_MONTHS, 550_000),
     ("Opa Kusnadi", "A/20", frozenset(range(1, 7)), 660_000),
     ("Endra", "A/22", FULL_YEAR, 1_320_000),
     ("Ardi", "A/26", frozenset(range(1, 8)), 650_000),
@@ -42,7 +60,7 @@ raw_2026: list[tuple[str, str, frozenset[int], int]] = [
     ("Andi Barata/Imam", "B/02", FULL_YEAR, 1_100_000),
     ("Agus Setiawan", "B/03", FULL_YEAR, 1_300_000),
     ("Firman", "B/05", FULL_YEAR, 1_000_000),
-    ("Agus Santoso/Ade", "B/06", frozenset(range(1, 6)), 550_000),
+    ("Agus Santoso/Ade", "B/06", SIX_MONTHS, 550_000),
     ("Adi Martono", "B/07", FULL_YEAR, 1_000_000),
     ("Felix Lamuri", "B/08", frozenset({1, 2, 3}), 300_000),
     ("Rida Bindiar", "B/09", frozenset(range(1, 7)), 660_000),
@@ -53,7 +71,7 @@ raw_2026: list[tuple[str, str, frozenset[int], int]] = [
     ("Akbariyadi", "B/19", frozenset(range(1, 6)), 540_000),
     ("Eko Sugiyarto", "B/20", frozenset(range(1, 8)), 780_000),
     ("Wayan", "B/21", FULL_YEAR, 1_100_000),
-    ("Richardo", "B/22", frozenset(range(1, 6)), 550_000),
+    ("Richardo", "B/22", SIX_MONTHS, 550_000),
     ("Mega Herlina", "B/23", FULL_YEAR, 1_100_000),
     ("Azil Ady Permana", "B/25", FULL_YEAR, 1_100_000),
     ("Hermawan", "B/29", frozenset(range(1, 7)), 660_000),
@@ -68,12 +86,12 @@ raw_2026: list[tuple[str, str, frozenset[int], int]] = [
     ("Ade", "C/07", frozenset(range(1, 8)), 780_000),
     ("Wawan", "C/08", frozenset(range(1, 7)), 660_000),
     ("Basuki Rahmat", "C/09", FULL_YEAR, 1_100_000),
-    ("Robin", "C/10", frozenset(range(1, 6)), 550_000),
+    ("Robin", "C/10", SIX_MONTHS, 550_000),
     ("Ika", "C/11", frozenset(range(1, 7)), 660_000),
     ("Dewi/Kris", "C/12", FULL_YEAR, 1_210_000),
     ("Iwan", "C/15", FULL_YEAR, 1_100_000),
     ("Irsyad", "C/16", frozenset(range(1, 6)), 540_000),
-    ("Palito", "C/19", frozenset(range(1, 6)), 550_000),
+    ("Palito", "C/19", SIX_MONTHS, 550_000),
     ("Yudi", "C/22", frozenset(range(1, 7)), 660_000),
     ("M. Andri", "D/01", FULL_YEAR, 1_100_000),
     ("Linda Fanny", "D/02", FULL_YEAR, 1_100_000),
@@ -89,14 +107,14 @@ raw_2026: list[tuple[str, str, frozenset[int], int]] = [
     ("Isaac", "D/12", frozenset(range(1, 6)), 540_000),
     ("Haris Susanto", "D/15", FULL_YEAR, 1_100_000),
     ("Suryanto", "D/16", FULL_YEAR, 1_000_000),
-    ("Ronny", "D/17", frozenset(range(1, 6)), 550_000),
+    ("Ronny", "D/17", SIX_MONTHS, 550_000),
     ("Agus Prasetyono", "D/18", FULL_YEAR, 1_100_000),
     ("Pandu Teguh", "D/19", FULL_YEAR, 1_100_000),
     ("Yunita/Donny", "D/19A", FULL_YEAR, 1_100_000),
     ("Ulin Niam Yusron", "D/20", FULL_YEAR, 1_100_000),
     # D/22 not in houses-sample.csv; included for laporan completeness.
     ("Kelvin Yerry Putra", "D/22", frozenset({1, 2, 3}), 300_000),
-    ("Adhi Kirana", "D/26", frozenset(range(1, 6)), 550_000),
+    ("Adhi Kirana", "D/26", SIX_MONTHS, 550_000),
     ("Yuki/Sofian/Bayu", "D/28", FULL_YEAR, 1_320_000),
     ("Dimas", "D/30", FULL_YEAR, 1_260_000),
     ("Mamat", "D/30A", FULL_YEAR, 1_200_000),
@@ -108,7 +126,7 @@ raw_2026: list[tuple[str, str, frozenset[int], int]] = [
     ("Agusvian Marano", "E/07", frozenset({1, 2, 3}), 660_000),
     ("Rina", "E/08", FULL_YEAR, 1_000_000),
     ("Nerju", "E/09", FULL_YEAR, 1_100_000),
-    ("Ichsanul Fachri/ Rein", "E/10", frozenset(range(1, 6)), 550_000),
+    ("Ichsanul Fachri/ Rein", "E/10", SIX_MONTHS, 550_000),
     ("Danny Andrian", "E/11", frozenset(range(1, 7)), 660_000),
     ("Joshua", "E/12", frozenset(range(1, 5)), 420_000),
     ("Wisa Arbi", "E/15", frozenset(range(1, 8)), 720_000),
@@ -153,14 +171,44 @@ def normalize_house_number(value: str) -> str:
     return value.upper()
 
 
+def house_key(block_code: str, house_number: str) -> str:
+    return f"{block_code}/{house_number}"
+
+
 def payment_note(surplus: int) -> str:
     if surplus > 0:
         return f"Imported laporan {YEAR} (+{surplus} deposit)"
     return f"Imported laporan {YEAR}"
 
 
-def early_bird_note() -> str:
-    return f"Imported laporan {YEAR} (early-bird Jan prepay)"
+def january_promo_note(label: str) -> str:
+    return f"Imported laporan {YEAR} ({label})"
+
+
+def single_january_row(
+    name: str,
+    block_code: str,
+    house_number: str,
+    gross_amount: int,
+    note: str,
+) -> tuple[list[dict], list[dict]]:
+    payment_date = f"{YEAR}-01-01"
+    rdms_row = {
+        "block_code": block_code,
+        "house_number": house_number,
+        "payment_date": payment_date,
+        "gross_amount": gross_amount,
+        "note": note,
+    }
+    audit_row = {
+        "Nama": name,
+        "Blok": block_code,
+        "Nomor Rumah": house_number,
+        "Tanggal Bayar": payment_date,
+        "Jumlah Bayar": gross_amount,
+        "Keterangan": note,
+    }
+    return [rdms_row], [audit_row]
 
 
 def generate_payment_rows(
@@ -170,25 +218,44 @@ def generate_payment_rows(
     paid_months: frozenset[int],
     total_amt: int,
 ) -> tuple[list[dict], list[dict]]:
-    if paid_months == FULL_YEAR and total_amt == EARLY_BIRD_GROSS:
-        payment_date = f"{YEAR}-01-01"
-        note = early_bird_note()
-        rdms_row = {
-            "block_code": block_code,
-            "house_number": house_number,
-            "payment_date": payment_date,
-            "gross_amount": EARLY_BIRD_GROSS,
-            "note": note,
-        }
-        audit_row = {
-            "Nama": name,
-            "Blok": block_code,
-            "Nomor Rumah": house_number,
-            "Tanggal Bayar": payment_date,
-            "Jumlah Bayar": EARLY_BIRD_GROSS,
-            "Keterangan": note,
-        }
-        return [rdms_row], [audit_row]
+    key = house_key(block_code, house_number)
+
+    if total_amt == SIX_MONTH_GROSS:
+        return single_january_row(
+            name,
+            block_code,
+            house_number,
+            SIX_MONTH_GROSS,
+            january_promo_note("Jan 6-month prepay"),
+        )
+
+    if paid_months == FULL_YEAR and total_amt == STAFF_YEAR_GROSS and key in STAFF_HOUSE_KEYS:
+        return single_january_row(
+            name,
+            block_code,
+            house_number,
+            STAFF_YEAR_GROSS,
+            january_promo_note("Jan staff year"),
+        )
+
+    if paid_months == FULL_YEAR and total_amt == YEAR_PACKAGE_GROSS:
+        return single_january_row(
+            name,
+            block_code,
+            house_number,
+            YEAR_PACKAGE_GROSS,
+            january_promo_note("Jan year package"),
+        )
+
+    if paid_months == FULL_YEAR and total_amt > YEAR_PACKAGE_GROSS:
+        deposit = total_amt - YEAR_PACKAGE_GROSS
+        return single_january_row(
+            name,
+            block_code,
+            house_number,
+            total_amt,
+            january_promo_note(f"Jan year package +{deposit} deposit"),
+        )
 
     months = sorted(paid_months)
     if not months:
@@ -250,24 +317,32 @@ def main() -> None:
     df_rdms.to_csv(RDMS_CSV, index=False)
     df_audit.to_csv(AUDIT_CSV, index=False)
 
-    fajar = df_rdms[(df_rdms["block_code"] == "A") & (df_rdms["house_number"] == "06")]
-    dinar = df_rdms[(df_rdms["block_code"] == "A") & (df_rdms["house_number"] == "02")]
-    endra = df_rdms[(df_rdms["block_code"] == "A") & (df_rdms["house_number"] == "22")]
+    promo_rows = df_rdms[df_rdms["note"].str.contains("Jan ", na=False)]
     deposit_rows = df_rdms[df_rdms["note"].str.contains("deposit", na=False)]
-    early_bird_rows = df_rdms[df_rdms["note"].str.contains("early-bird", na=False)]
 
     print(f"Wrote {len(df_rdms)} payment rows for {len(raw_2026)} houses")
     print(f"  RDMS import: {RDMS_CSV}")
     print(f"  Audit trail: {AUDIT_CSV}")
-    print(f"  Early-bird LUNAS rows: {len(early_bird_rows)}")
-    print(f"  Full-year base dues: Rp {base_dues(FULL_YEAR):,} (Jan {LEGACY_RATE:,} + 11×{CURRENT_RATE:,})")
-    print("\nFajar A/06 (early-bird LUNAS):")
-    print(fajar[["payment_date", "gross_amount", "note"]].to_string(index=False))
-    print("\nEndra A/22 (full year, laporan Rp 1.32M):")
-    print(endra[["payment_date", "gross_amount"]].to_string(index=False))
-    print(f"\nDeposit rows: {len(deposit_rows)}")
-    if not deposit_rows.empty:
-        print(deposit_rows[["block_code", "house_number", "payment_date", "gross_amount"]].head(5).to_string(index=False))
+    print(f"  January promotional rows: {len(promo_rows)}")
+    print(f"  Monthly-drip deposit rows: {len(deposit_rows)}")
+    print("\nFajar A/06 (year package):")
+    print(
+        df_rdms[(df_rdms["block_code"] == "A") & (df_rdms["house_number"] == "06")][
+            ["payment_date", "gross_amount", "note"]
+        ].to_string(index=False)
+    )
+    print("\nEndra A/22 (year package + deposit):")
+    print(
+        df_rdms[(df_rdms["block_code"] == "A") & (df_rdms["house_number"] == "22")][
+            ["payment_date", "gross_amount", "note"]
+        ].to_string(index=False)
+    )
+    print("\nTonny A/16 (staff year):")
+    print(
+        df_rdms[(df_rdms["block_code"] == "A") & (df_rdms["house_number"] == "16")][
+            ["payment_date", "gross_amount", "note"]
+        ].to_string(index=False)
+    )
 
 
 if __name__ == "__main__":

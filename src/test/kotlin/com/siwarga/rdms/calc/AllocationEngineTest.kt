@@ -21,6 +21,20 @@ class AllocationEngineTest {
 
     private fun duesLines(r: PaymentResult) = r.lines.filter { it.type == AllocationType.DUES }
 
+    private fun staffContext(
+        effectiveFrom: String = "2026-01-01",
+        effectiveTo: String? = null,
+    ) = HouseDiscountContext(
+        staffStatusPeriods =
+            listOf(
+                StaffStatusPeriod(
+                    effectiveFrom = LocalDate.parse(effectiveFrom),
+                    effectiveTo = effectiveTo?.let { LocalDate.parse(it) },
+                    staffHouse = true,
+                ),
+            ),
+    )
+
     @Test
     fun `rejects payment below one month dues`() {
         assertThrows(PaymentRejectedException::class.java) {
@@ -131,7 +145,7 @@ class AllocationEngineTest {
     }
 
     @Test
-    fun `January 2026 early-bird prepay covers full year with December reward`() {
+    fun `January 2026 year package covers full year with reconciled discounts`() {
         val res =
             AllocationEngine.replay(
                 ym(2026, 1),
@@ -141,12 +155,106 @@ class AllocationEngineTest {
         val lines = duesLines(res.perPayment.single())
         assertEquals(12, lines.size)
         assertEquals(11, lines.count { it.amount == 100_000L })
+        val february = lines.single { it.period == ym(2026, 2) }
+        assertEquals(100_000, february.amount)
+        assertEquals(20_000, february.discountApplied)
         val december = lines.single { it.period == ym(2026, 12) }
         assertEquals(0, december.amount)
-        assertEquals(100_000, december.discountApplied)
+        assertEquals(120_000, december.discountApplied)
+        lines.forEach { line ->
+            val scheduled = if (line.period!!.monthValue == 1) 100_000L else 120_000L
+            assertEquals(scheduled, line.amount + line.discountApplied)
+        }
         assertEquals(0, res.account.arrearsTotal)
         assertEquals(0, res.account.penaltyTotal)
         assertEquals(ym(2026, 12), res.account.coveredThrough)
+    }
+
+    @Test
+    fun `January 2026 six-month prepay at 550k`() {
+        val res =
+            AllocationEngine.replay(
+                ym(2026, 1),
+                listOf(pay("2026-01-01", 550_000)),
+                ym(2026, 6),
+            )
+        val lines = duesLines(res.perPayment.single())
+        assertEquals(6, lines.size)
+        val june = lines.single { it.period == ym(2026, 6) }
+        assertEquals(50_000, june.amount)
+        assertEquals(70_000, june.discountApplied)
+        assertEquals(ym(2026, 6), res.account.coveredThrough)
+    }
+
+    @Test
+    fun `January 2026 staff year package waives June and December for staff house`() {
+        val res =
+            AllocationEngine.replay(
+                ym(2026, 1),
+                listOf(pay("2026-01-01", 1_000_000)),
+                ym(2026, 12),
+                discountContext = staffContext(),
+            )
+        val lines = duesLines(res.perPayment.single())
+        assertEquals(12, lines.size)
+        assertEquals(0, lines.single { it.period == ym(2026, 6) }.amount)
+        assertEquals(0, lines.single { it.period == ym(2026, 12) }.amount)
+        assertEquals(10, lines.count { it.amount == 100_000L })
+        assertEquals(ym(2026, 12), res.account.coveredThrough)
+    }
+
+    @Test
+    fun `January 2026 staff package requires staff status on payment date`() {
+        val res =
+            AllocationEngine.replay(
+                ym(2026, 1),
+                listOf(pay("2026-01-01", 1_000_000)),
+                ym(2026, 12),
+                discountContext = staffContext(effectiveFrom = "2026-02-01"),
+            )
+
+        assertTrue(duesLines(res.perPayment.single()).size < 12)
+        assertTrue(res.account.coveredThrough == null || res.account.coveredThrough!! < ym(2026, 12))
+    }
+
+    @Test
+    fun `January 2026 staff package does not apply after staff status ended`() {
+        val res =
+            AllocationEngine.replay(
+                ym(2026, 1),
+                listOf(pay("2026-01-01", 1_000_000)),
+                ym(2026, 12),
+                discountContext = staffContext(effectiveFrom = "2025-01-01", effectiveTo = "2026-01-01"),
+            )
+
+        assertTrue(duesLines(res.perPayment.single()).size < 12)
+        assertTrue(res.account.coveredThrough == null || res.account.coveredThrough!! < ym(2026, 12))
+    }
+
+    @Test
+    fun `January 2026 year package with deposit`() {
+        val res =
+            AllocationEngine.replay(
+                ym(2026, 1),
+                listOf(pay("2026-01-01", 1_320_000)),
+                ym(2026, 12),
+            )
+        val r = res.perPayment.single()
+        assertEquals(220_000, r.lines.single { it.type == AllocationType.DEPOSIT }.amount)
+        assertEquals(220_000, r.depositAfter)
+        assertEquals(12, duesLines(r).size)
+    }
+
+    @Test
+    fun `1M January payment without staff status uses normal allocation`() {
+        val res =
+            AllocationEngine.replay(
+                ym(2026, 1),
+                listOf(pay("2026-01-01", 1_000_000)),
+                ym(2026, 12),
+            )
+        assertTrue(duesLines(res.perPayment.single()).size < 12)
+        assertTrue(res.account.coveredThrough == null || res.account.coveredThrough!! < ym(2026, 12))
     }
 
     @Test

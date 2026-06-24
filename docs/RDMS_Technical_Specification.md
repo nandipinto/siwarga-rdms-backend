@@ -1,9 +1,9 @@
 # Resident Dues Management System — Technical Specification
 
-> **Document Status:** Draft v1.6
+> **Document Status:** Draft v1.7
 > **Prepared for:** AI Coding Agents / Backend Developers
 > **Effective Date:** 2026-05-31
-> **Last Updated:** 2026-06-16
+> **Last Updated:** 2026-06-24
 > **System Start Date:** 1 January 2024
 
 ---
@@ -19,6 +19,7 @@
 | v1.4 | 2026-06-10 | Added rental-guarantee **refund on lease end** — `RentalGuaranteeRefund` entity (§3.8), refund rules (§2.7), tenant contact snapshots on payment, auto `PENDING` refund on lease termination, refund completion API (§5.7). Clarified pending refunds do **not** block new-tenant registration (§2.7). |
 | v1.5 | 2026-06-15 | Added **Dashboard** aggregated endpoint (§5.5) — role-aware summary for Administrator (KPIs, calendar-year income trend, recent payments, top arrears, operational alerts) and Supervisor (alerts only). Access matrix updated (§4.2). |
 | v1.6 | 2026-06-16 | **RT-scoped supervisors.** A supervisor is now confined to exactly one RT. Added `rt_id` FK on `AppUser` with `UNIQUE` (strict 1:1) and an activity-aware requirement; deactivation releases the RT for handoff (§3.5). Rewrote role definitions and the access matrix with a Scope column; added §4.3 **RT Scoping for Supervisors** (principal-derived RT, silent `rt_id` override on lists/reports/dashboard, `403` on out-of-RT single-resource/create/update, fail-closed on null RT) and the `rtId`/`rtCode` login identity. House **read** opened to supervisors (own RT). Dashboard (§5.5) now returns the **same full payload** for supervisors, RT-scoped, replacing the alerts-only shape. Per-endpoint scope notes on §5.3/§5.4/§5.6/§5.7. RT delete guard also blocks a linked supervisor (§5.2). |
+| v1.7 | 2026-06-24 | **January 2026 promotional profiles** (§2.3.1, ADR-0002): year package, staff year, 6-month prepay, and year+deposit — locked cash tariff with `discount_applied` reconciling to `getDuesRate`; replaces hardcoded early-bird path. |
 
 ---
 
@@ -115,6 +116,21 @@ Discounts are applied per qualifying block:
 > **RULE:** Discounts do NOT stack across tiers. Evaluate qualifying multiples from the largest block downward, then handle the remainder at the next tier.
 
 > **VALUATION:** Each discount is valued **per-period** using `getDuesRate` of the specific month it is attributed to — the 12-month free month uses that month's full rate; the 6-month half-discount uses 50% of that month's rate. This is recorded in the `discount_applied` column of the affected period's `PaymentAllocation` row, and is therefore correct when a forward block straddles the February 2026 rate boundary.
+
+---
+
+### 2.3.1 January 2026 Promotional Profiles (ADR-0002)
+
+One-time promotional lump sums **dated January 2026** on a clean account (`nextUnpaid == Jan 2026`, no outstanding penalty, no deposit) are **not** routed through §2.3 `allocateForward`. They use fixed profiles keyed by `gross_amount`. The staff profile additionally requires the house to be staff-eligible on the payment date according to the effective-dated `house_staff_status` history. Cash is priced at the **locked tariff** (Rp 100,000/full month, Rp 50,000/half-month, Rp 0/waived month) while report `expected_idr` remains `getDuesRate(period)`. Each covered dues row satisfies `amount + discount_applied = getDuesRate(period)`.
+
+| Profile | Gross (IDR) | Coverage | Cash shape |
+|---|---|---|---|
+| **6-month prepay** | 550,000 | Jan–Jun 2026 | 5 × 100k + 50k on June |
+| **Staff year** | 1,000,000 | Jan–Dec 2026 (staff-eligible houses only) | 10 × 100k; **June & December waived** |
+| **Year package** | 1,100,000 | Jan–Dec 2026 | 11 × 100k; **December waived** |
+| **Year + deposit** | > 1,100,000 | Jan–Dec 2026 + deposit | Year package + `deposit = gross − 1,100,000` |
+
+Catch-up months (arrears/penalties) in the same payment are always at full scheduled rate with no lock and no promotional discount. §2.3 forward prepayment discounts apply only outside these January 2026 profiles.
 
 ---
 
@@ -294,6 +310,27 @@ If the lease ends but no guarantee was ever collected for that obligation, no re
 - When `status = 'RENTED'` and `lease_duration_months >= min-duration-months`: `rental_guarantee_amount_idr IS NOT NULL AND rental_guarantee_amount_idr > 0`
 
 > **NOTE:** A House is a **permanent** physical residence — it is never deleted and has no soft-delete flag. When the property owner changes, `owner_name` / `email` / `phone` are updated in place. When a house transitions to `RENTED`, the owner stops residing there and tenant contact is recorded; reverting to `OWNED` clears the tenant (owner moves back in). The dues ledger (`active_date`, payments, arrears, penalties, deposit) is **house-anchored** to the property and carries across owner/tenant changes unchanged.
+
+---
+
+### 3.2.1 Entity: HouseStaffStatus
+
+Effective-dated staff eligibility history for a house. This supports scheduled staff rotations and ad hoc changes without changing historical replay semantics.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | UUID | PK | Surrogate primary key |
+| `house_id` | FK → House.id | NOT NULL | House whose staff status is recorded |
+| `effective_from` | DATE | NOT NULL | First date the status applies |
+| `effective_to` | DATE | NULLABLE | Exclusive end date; `NULL` means open-ended |
+| `staff_house` | BOOLEAN | NOT NULL | Whether the house is staff-eligible during the effective period |
+| `created_at` | TIMESTAMPTZ | NOT NULL | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | NOT NULL | Last modification timestamp |
+| `version` | BIGINT | NOT NULL | Optimistic locking version |
+
+**Range rule:** `effective_from <= date < effective_to`. A `NULL effective_to` means the status remains active indefinitely.
+
+**No-overlap rule:** A house MUST NOT have overlapping staff-status periods.
 
 ---
 
@@ -892,6 +929,7 @@ Because retroactive coverage never enters the on-time set, a penalty once trigge
 When `POST /payments` (or an update/delete) is processed, the entire house account is recomputed by replaying its full payment history inside a **single database transaction**, guarded by a **pessimistic write-lock on the house row** (see §6.2). Payments replay in `(payment_date, created_at, id)` order. For each payment:
 
 0. Reject the payment if `gross_amount < getDuesRate(payment_month)` (minimum is one month's dues on **gross** alone, §2.2).
+0a. **January 2026 promotional profile** (§2.3.1): when `payment_date` is January 2026, `nextUnpaid == Jan 2026`, no outstanding penalty, and no deposit, try a matching promotional profile by `gross_amount`. The staff profile also requires staff eligibility on the payment date from `house_staff_status`. On match, allocate the profile's dues rows (`amount + discount_applied = getDuesRate(period)` per month) plus any deposit remainder, then skip steps 1–4 for this payment.
 1. Set `remaining = gross_amount + deposit_balance` (carried from the previous payment).
 2. For each unpaid period from the earliest through the payment month (oldest first):
    - `rate = getDuesRate(period)`

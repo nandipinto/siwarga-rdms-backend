@@ -1,9 +1,7 @@
 package com.siwarga.rdms.service
 
-import com.siwarga.rdms.calc.AllocationEngine
 import com.siwarga.rdms.calc.AllocationType
 import com.siwarga.rdms.calc.DuesRate
-import com.siwarga.rdms.calc.PaymentInput
 import com.siwarga.rdms.domain.DashboardAlerts
 import com.siwarga.rdms.domain.DashboardCurrentMonth
 import com.siwarga.rdms.domain.DashboardHouseStats
@@ -208,13 +206,7 @@ class DashboardService(
         val index = payments.indexOfFirst { it.id == target.id }
         if (index < 0) return false
         val slice = payments.subList(0, index + 1)
-        val inputs = slice.map { PaymentInput(it.paymentDate, it.grossAmount, it.id, it.createdAt) }
-        val result =
-            AllocationEngine.replay(
-                YearMonth.from(house.activeDate),
-                inputs,
-                refMonth,
-            )
+        val result = accountService.replayPartial(house, slice, refMonth)
         return result.account.arrearsTotal == 0L && result.account.penaltyTotal == 0L
     }
 }
